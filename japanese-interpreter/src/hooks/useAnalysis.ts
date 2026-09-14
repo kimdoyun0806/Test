@@ -49,7 +49,7 @@ export function useAnalysis(settings: AppSettings) {
             updateCard(id, {
               status: "error",
               errorMessage:
-                "API 키 또는 프록시가 없습니다. 설정에서 입력하거나 목 모드를 켜 주세요.",
+                "사이트에 API 프록시가 아직 연결되지 않았습니다. 관리자에게 문의해 주세요.",
             });
             return;
           }
@@ -91,8 +91,8 @@ export function useAnalysis(settings: AppSettings) {
           updateCard(id, {
             status: "error",
             errorMessage: settings.mockMode
-              ? "목 모드에서는 한→일 번역이 지원되지 않습니다. API 키 또는 프록시를 설정해 주세요."
-              : "API 키 또는 프록시가 없습니다. 설정에서 입력해 주세요.",
+              ? "목 모드에서는 한→일 번역이 지원되지 않습니다."
+              : "사이트에 API 프록시가 아직 연결되지 않았습니다. 관리자에게 문의해 주세요.",
           });
           return;
         }

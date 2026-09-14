@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Analysis } from "../types/analysis";
 import type { VocabCard } from "../services/storage/db";
-import { deleteVocab, listVocab, listDueVocab } from "../services/storage/vocabStore";
+import {
+  deleteVocab,
+  exportVocab,
+  importVocab,
+  listVocab,
+  listDueVocab,
+  type ExportData,
+} from "../services/storage/vocabStore";
 import { getCachedAnalysis } from "../services/storage/analysisCache";
 import { speakJapanese, hasJapaneseVoice } from "../services/speech/tts";
 import AnalyzedSentenceView from "../components/interpret/AnalyzedSentenceView";
@@ -26,6 +33,30 @@ export default function NotebookPage({ onStartReview }: Props) {
   const [filter, setFilter] = useState<Filter>("all");
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [backupMessage, setBackupMessage] = useState<string | null>(null);
+
+  const handleExport = async () => {
+    const data = await exportVocab();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `zenji-vocab-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImport = async (file: File) => {
+    try {
+      const data = JSON.parse(await file.text()) as ExportData;
+      if (data.version !== 1 || !Array.isArray(data.vocab)) throw new Error("형식 오류");
+      const added = await importVocab(data);
+      setBackupMessage(`어휘장 항목 ${added}개를 가져왔습니다.`);
+      void reload();
+    } catch {
+      setBackupMessage("가져오기에 실패했습니다. 이 앱에서 내보낸 JSON 파일인지 확인해 주세요.");
+    }
+  };
 
   const reload = useCallback(async () => {
     const all = await listVocab();
@@ -194,6 +225,33 @@ export default function NotebookPage({ onStartReview }: Props) {
           </div>
         </div>
       ))}
+
+      <div className="card">
+        <h3 style={{ marginTop: 0 }}>백업</h3>
+        <p className="muted" style={{ marginTop: 0 }}>
+          어휘장은 이 브라우저에 저장됩니다. 다른 기기로 옮기거나 백업하려면 내보내기를
+          사용하세요.
+        </p>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button className="btn btn-sm" onClick={handleExport}>
+            📤 내보내기 (JSON)
+          </button>
+          <label className="btn btn-sm" style={{ display: "inline-block" }}>
+            📥 가져오기
+            <input
+              type="file"
+              accept="application/json"
+              style={{ display: "none" }}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void handleImport(file);
+                e.target.value = "";
+              }}
+            />
+          </label>
+        </div>
+        {backupMessage && <p className="muted">{backupMessage}</p>}
+      </div>
     </div>
   );
 }

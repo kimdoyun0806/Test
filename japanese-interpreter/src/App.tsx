@@ -3,38 +3,22 @@ import InterpretPage from "./pages/InterpretPage";
 import NotebookPage from "./pages/NotebookPage";
 import ReviewPage from "./pages/ReviewPage";
 import SharePage from "./pages/SharePage";
-import SettingsPage from "./pages/SettingsPage";
-import { loadSettings, saveSettings, type AppSettings } from "./services/storage/settings";
-import {
-  MicIcon,
-  BookIcon,
-  RepeatIcon,
-  ShareIcon,
-  SettingsIcon,
-} from "./components/common/Icons";
+import { loadSettings } from "./services/storage/settings";
+import { MicIcon, BookIcon, RepeatIcon, ShareIcon } from "./components/common/Icons";
 import type { ReactNode } from "react";
 
-type Tab = "interpret" | "notebook" | "review" | "share" | "settings";
+type Tab = "interpret" | "notebook" | "review" | "share";
 
 const TABS: { id: Tab; icon: ReactNode; label: string }[] = [
   { id: "interpret", icon: <MicIcon />, label: "통역" },
   { id: "notebook", icon: <BookIcon />, label: "어휘장" },
   { id: "review", icon: <RepeatIcon />, label: "복습" },
   { id: "share", icon: <ShareIcon />, label: "공유" },
-  { id: "settings", icon: <SettingsIcon />, label: "설정" },
 ];
 
 export default function App() {
   const [tab, setTab] = useState<Tab>("interpret");
-  const [settings, setSettings] = useState<AppSettings>(loadSettings);
-
-  const updateSettings = (patch: Partial<AppSettings>) => {
-    setSettings((prev) => {
-      const next = { ...prev, ...patch };
-      saveSettings(next);
-      return next;
-    });
-  };
+  const [settings] = useState(loadSettings);
 
   return (
     <>
@@ -50,9 +34,6 @@ export default function App() {
         {tab === "notebook" && <NotebookPage onStartReview={() => setTab("review")} />}
         {tab === "review" && <ReviewPage />}
         {tab === "share" && <SharePage />}
-        {tab === "settings" && (
-          <SettingsPage settings={settings} onChange={updateSettings} />
-        )}
       </main>
       <nav className="tab-bar">
         {TABS.map((t) => (
