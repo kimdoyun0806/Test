@@ -5,6 +5,7 @@ import { useSpeechRecognition } from "../hooks/useSpeechRecognition";
 import { containsJapanese, splitSentences } from "../services/sentenceSplit";
 import { MOCK_EXAMPLE_SENTENCE } from "../api/mockClient";
 import SentenceCard from "../components/interpret/SentenceCard";
+import HandwritingPad from "../components/interpret/HandwritingPad";
 import { MicIcon, StopIcon } from "../components/common/Icons";
 import { toKana } from "wanakana";
 
@@ -20,6 +21,8 @@ export default function InterpretPage({ settings }: Props) {
   const [toast, setToast] = useState<string | null>(null);
   /** 로마자→가나 실시간 변환 입력 모드 (일본어 키보드 없이 타이핑) */
   const [romajiInput, setRomajiInput] = useState(false);
+  /** 손글씨 입력 패드 표시 */
+  const [showPad, setShowPad] = useState(false);
 
   const showToast = useCallback((message: string) => {
     setToast(message);
@@ -122,6 +125,12 @@ export default function InterpretPage({ settings }: Props) {
         >
           ✨ 예시 문장 분석해 보기
         </button>
+        <button
+          className={`btn btn-sm${showPad ? " btn-primary" : ""}`}
+          onClick={() => setShowPad((p) => !p)}
+        >
+          ✍️ 손글씨 입력
+        </button>
         <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
           <input
             type="checkbox"
@@ -129,9 +138,18 @@ export default function InterpretPage({ settings }: Props) {
             onChange={(e) => setRomajiInput(e.target.checked)}
             style={{ width: 16, height: 16, accentColor: "var(--color-primary)" }}
           />
-          あ 로마자로 일본어 입력
+          あ 로마자 입력
         </label>
       </p>
+
+      {showPad && (
+        <HandwritingPad
+          settings={settings}
+          onInsert={(recognized) => setText((prev) => prev + recognized)}
+          onClose={() => setShowPad(false)}
+          onToast={showToast}
+        />
+      )}
 
       {cards.length === 0 && (
         <div className="empty-state">

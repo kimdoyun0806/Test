@@ -117,6 +117,37 @@ export async function analyzeSentence(sentence: string, opts: AnalyzeOptions): P
   }
 }
 
+/** 손글씨 이미지(캔버스 PNG)를 Claude Vision으로 인식 — 구글 인식 실패 시 폴백 */
+export async function recognizeHandwritingImage(
+  imageDataUrl: string,
+  opts: AnalyzeOptions,
+): Promise<string> {
+  const client = new Anthropic({ apiKey: opts.apiKey, dangerouslyAllowBrowser: true });
+  const base64 = imageDataUrl.split(",")[1] ?? "";
+  const res = await client.messages.create({
+    model: opts.model,
+    max_tokens: 200,
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "image",
+            source: { type: "base64", media_type: "image/png", data: base64 },
+          },
+          {
+            type: "text",
+            text: "이 손글씨 이미지에 적힌 일본어 텍스트만 정확히 출력하라. 설명이나 다른 말은 하지 마라.",
+          },
+        ],
+      },
+    ],
+  });
+  const text = res.content.find((b) => b.type === "text")?.text.trim() ?? "";
+  if (!text) throw new Error("손글씨를 인식하지 못했습니다.");
+  return text;
+}
+
 /** 사용자 친화적 에러 메시지로 변환 */
 export function describeApiError(error: unknown): string {
   if (error instanceof Anthropic.AuthenticationError) {
