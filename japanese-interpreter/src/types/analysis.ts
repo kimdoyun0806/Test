@@ -13,8 +13,9 @@ export const WireAnalysisSchema = z.object({
       s: z.string(),
       k: z.string(),
       g: z.number().int(),
-      m: z.string(),
-      v: z.enum(["N5", "N4", "N3", "N2", "N1"]).nullable(),
+      // m·v는 모델이 가끔 빈 값/규격 외 값을 넣으므로 느슨하게 받고 fromWire에서 정리한다
+      m: z.string().nullable(),
+      v: z.string().nullable(),
     }),
   ),
   seg: z.array(z.object({ j: z.string(), ko: z.string() })),
@@ -54,6 +55,8 @@ export type AnalysisToken = Analysis["tokens"][number];
 export type AnalysisSegment = Analysis["segments"][number];
 export type GrammarPoint = Analysis["grammar_points"][number];
 
+const LEVELS = ["N5", "N4", "N3", "N2", "N1"] as const;
+
 /** wire → 내부 형태 변환. 로마자·한글 발음은 가나 읽기에서 규칙 생성한다 */
 export function fromWire(wire: WireAnalysis, sentence: string): Analysis {
   return {
@@ -61,14 +64,17 @@ export function fromWire(wire: WireAnalysis, sentence: string): Analysis {
     translation_ko: wire.tr,
     tokens: wire.t.map((t) => {
       const { romaji, hangul } = transliterateKana(t.k);
+      const level = LEVELS.includes(t.v as (typeof LEVELS)[number])
+        ? (t.v as (typeof LEVELS)[number])
+        : null;
       return {
         surface: t.s,
         reading_kana: t.k,
         romaji,
         hangul,
         segment_index: t.g,
-        meaning_ko: t.m,
-        level: t.v,
+        meaning_ko: t.m || null,
+        level,
       };
     }),
     segments: wire.seg.map((s) => ({ jp_text: s.j, ko_text: s.ko })),

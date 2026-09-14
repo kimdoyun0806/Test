@@ -12,6 +12,16 @@ const WIRE = {
 };
 
 describe("fromWire", () => {
+  it("규격 외 v 값(빈 문자열 등)은 null로 정리한다", () => {
+    const wire = WireAnalysisSchema.parse({
+      ...WIRE,
+      t: [{ s: "旅行", k: "りょこう", g: 0, m: "", v: "" }],
+    });
+    const analysis = fromWire(wire, "旅行");
+    expect(analysis.tokens[0].level).toBeNull();
+    expect(analysis.tokens[0].meaning_ko).toBeNull();
+  });
+
   it("축약 필드를 내부 형태로 변환하고 로마자·한글을 규칙 생성한다", () => {
     const parsed = WireAnalysisSchema.parse(WIRE);
     const analysis = fromWire(parsed, " 旅行に ");

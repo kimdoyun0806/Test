@@ -95,13 +95,27 @@ export async function analyzeSentence(sentence: string, opts: AnalyzeOptions): P
   const client = new Anthropic({ apiKey: opts.apiKey, dangerouslyAllowBrowser: true });
   const messages: Anthropic.MessageParam[] = [{ role: "user", content: sentence }];
 
-  const analysis = await callOnce(client, opts.model, sentence, messages);
+  const retryModel = opts.model === ESCALATION_MODEL ? opts.model : ESCALATION_MODEL;
+
+  let analysis: Analysis;
+  try {
+    analysis = await callOnce(client, opts.model, sentence, messages);
+  } catch (error) {
+    // 출력 형식 자체가 깨진 경우(스키마 파싱 실패 등) → 상위 모델로 1회 재시도
+    if (error instanceof Anthropic.APIError) throw error;
+    try {
+      return await callOnce(client, retryModel, sentence, messages);
+    } catch (retryError) {
+      if (retryError instanceof Anthropic.APIError) throw retryError;
+      throw new Error("분석 결과 형식이 올바르지 않습니다. 문장을 짧게 나눠 다시 시도해 주세요.");
+    }
+  }
+
   const result = validateAnalysis(analysis, sentence);
   if (result.ok) return analysis;
   // 색상 매핑만 깨진 경우: 재시도(추가 비용·대기) 없이 즉시 색상 없는 표시로 넘긴다
   if (result.segmentOnlyFailure) return analysis;
 
-  const retryModel = opts.model === ESCALATION_MODEL ? opts.model : ESCALATION_MODEL;
   const retryMessages: Anthropic.MessageParam[] = [
     ...messages,
     {
