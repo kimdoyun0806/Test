@@ -4,6 +4,9 @@ import NotebookPage from "./pages/NotebookPage";
 import ReviewPage from "./pages/ReviewPage";
 import SharePage from "./pages/SharePage";
 import { loadSettings } from "./services/storage/settings";
+import { getUserCode, loginRequired } from "./services/auth";
+import LoginGate from "./components/common/LoginGate";
+import UsageBadge from "./components/common/UsageBadge";
 import { MicIcon, BookIcon, RepeatIcon, ShareIcon } from "./components/common/Icons";
 import type { ReactNode } from "react";
 
@@ -19,12 +22,19 @@ const TABS: { id: Tab; icon: ReactNode; label: string }[] = [
 export default function App() {
   const [tab, setTab] = useState<Tab>("interpret");
   const [settings] = useState(loadSettings);
+  const [userCode, setUserCodeState] = useState(getUserCode());
+
+  // 내장 프록시 운영 시: 이용 코드 입력 전에는 로그인 화면
+  if (loginRequired() && !userCode) {
+    return <LoginGate onSuccess={setUserCodeState} />;
+  }
 
   return (
     <>
       <header className="app-header">
         <span className="app-logo">젠지</span>
         <span className="app-tagline">全字 · 모든 글자를 내 것으로</span>
+        {loginRequired() && <UsageBadge />}
       </header>
       <main className="app-main">
         {/* 통역 화면은 항상 마운트 유지 — 탭 이동 중에도 분석이 계속되고 카드가 보존됨 */}

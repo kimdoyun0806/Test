@@ -6,6 +6,7 @@ import { getCachedAnalysis, putCachedAnalysis } from "../services/storage/analys
 import { splitSentences } from "../services/sentenceSplit";
 import { validateAnalysis } from "../api/validate";
 import { hasCredentials, type AppSettings } from "../services/storage/settings";
+import { notifyUsageChanged } from "../services/auth";
 
 export interface SentenceCardData {
   id: string;
@@ -61,6 +62,7 @@ export function useAnalysis(settings: AppSettings) {
         const v = validateAnalysis(analysis, sentence);
         await putCachedAnalysis(sentence, analysis, settings.mockMode ? "mock" : settings.model);
         updateCard(id, { sentence, status: "done", analysis, degraded: !v.ok });
+        notifyUsageChanged();
       } catch (error) {
         updateCard(id, { status: "error", errorMessage: describeApiError(error) });
       }

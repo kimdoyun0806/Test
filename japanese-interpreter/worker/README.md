@@ -9,12 +9,21 @@
 2. 왼쪽 메뉴 **Workers & Pages** → **Create** → **Create Worker**
    - 이름: `zenji-proxy` → **Deploy** (기본 코드로 일단 배포됨)
 3. **Edit code** → 기본 코드를 전부 지우고 이 폴더의 `worker.js` 내용을 붙여넣기 → **Deploy**
-4. Worker 화면 → **Settings** → **Variables and Secrets** 에서 3개 추가:
+4. Worker 화면 → **Settings** → **Variables and Secrets** 에서 추가:
    | 이름 | 타입 | 값 |
    |---|---|---|
    | `ANTHROPIC_API_KEY` | **Secret** | `sk-ant-...` (본인 API 키) |
    | `ACCESS_PASSWORD` | **Secret** | 원하는 접속 비밀번호 (길고 추측 어려운 문자열) |
    | `ALLOWED_ORIGINS` | Text | `https://kimdoyun0806.github.io,http://localhost:5173` |
+   | `USER_CODES` | Text | 이용 코드 목록, 쉼표 구분 (예: `minsu,younghee,jiho`) |
+   | `ADMIN_CODE` | **Secret** | 관리자용 코드 (무제한 — 다른 코드와 겹치지 않게) |
+   | `DAILY_LIMIT` | Text | 코드당 하루 분석 횟수 (예: `10`) |
+
+4-1. **일일 제한용 KV 저장소 연결** (이게 없으면 제한 없이 동작):
+   1. 대시보드 왼쪽 **Storage & Databases → KV** → **Create namespace** → 이름 `zenji-usage`
+   2. Worker → **Settings → Bindings** → **Add** → **KV Namespace**
+      - Variable name: `USAGE` (정확히 이 이름)
+      - KV namespace: `zenji-usage` 선택 → 저장(Deploy)
 5. Worker URL 확인 (예: `https://zenji-proxy.<계정>.workers.dev`)
 6. 젠지 앱 → 설정 탭 → **프록시 모드**에 Worker URL과 접속 비밀번호 입력 → 끝!
    (이후 API 키 입력은 필요 없음)
@@ -56,6 +65,15 @@ Worker 설치 후, GitHub 저장소에 변수 2개를 넣으면 배포 사이트
 ⚠️ 이렇게 하면 사이트 방문자 전원이 내 크레딧으로 API를 씁니다.
 Worker에 모델·토큰 상한 가드가 있지만, **Anthropic 콘솔 지출 한도 설정은 필수**입니다.
 사이트 주소를 공개된 곳에 올리지 말고 스터디원에게만 공유하세요.
+
+## 로그인·일일 제한 동작 방식
+
+- 사이트 첫 접속 시 **이용 코드** 입력 화면이 나옵니다. `USER_CODES`에 있는 코드만 통과.
+- 코드별로 **하루 `DAILY_LIMIT`회(기본 10) 문장 분석** 가능. 한→일 번역·손글씨 인식 등
+  부가 호출은 횟수에 포함되지 않습니다. 자정(KST) 리셋.
+- `ADMIN_CODE`로 입력하면 **무제한** + 헤더에 "관리자 · 무제한" 표시.
+- 스터디원 추가/삭제 = `USER_CODES` 변수만 수정하면 즉시 반영 (재배포 불필요).
+- 헤더 오른쪽 배지(오늘 N/10회)를 탭하면 코드를 변경할 수 있습니다.
 
 ## 보안 메모
 
