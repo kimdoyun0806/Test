@@ -3,7 +3,7 @@ import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
 import { WireAnalysisSchema, fromWire, type Analysis } from "../types/analysis";
 import { ENV_PROXY_PASSWORD, ENV_PROXY_URL } from "../services/storage/settings";
-import { getUserCode } from "../services/auth";
+import { getAdminCode } from "../services/auth";
 import { validateAnalysis } from "./validate";
 
 export const ANALYSIS_SYSTEM_PROMPT = `너는 한국인 일본어 학습자를 위한 문장 분석기다. 입력된 일본어 문장을 분석해 JSON으로만 응답한다.
@@ -78,7 +78,7 @@ function makeClient(opts: AnalyzeOptions): Anthropic {
       dangerouslyAllowBrowser: true,
       defaultHeaders: {
         "x-access-password": opts.proxyPassword ?? "",
-        "x-user-code": getUserCode(),
+        "x-admin-code": getAdminCode(),
       },
       timeout: 45_000,
       maxRetries: 1,
@@ -218,14 +218,11 @@ export async function recognizeHandwritingImage(
 /** 사용자 친화적 에러 메시지로 변환 */
 export function describeApiError(error: unknown): string {
   if (error instanceof Anthropic.AuthenticationError) {
-    if (error.message.includes("user code")) {
-      return "이용 코드가 더 이상 유효하지 않습니다. 새로고침 후 다시 입력해 주세요.";
-    }
     return "인증에 실패했습니다. 접속 비밀번호/키 설정을 확인해 주세요.";
   }
   if (error instanceof Anthropic.RateLimitError) {
     if (error.message.includes("daily_limit_exceeded")) {
-      return "오늘의 분석 횟수를 모두 사용했어요. 내일 자정(한국 시간)에 초기화됩니다.";
+      return "오늘 사이트의 분석 한도를 모두 사용했어요. 내일 자정(한국 시간)에 초기화됩니다.";
     }
     return "요청이 너무 잦습니다. 잠시 후 다시 시도해 주세요.";
   }
