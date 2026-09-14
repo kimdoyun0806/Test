@@ -8,6 +8,9 @@
 !/.gitignore
 !/New_manual.txt
 
+# GitHub Actions 워크플로 (Pages 배포)
+!/.github/
+
 # 일본어 학습 앱 (japanese-interpreter/)
 !/japanese-interpreter/
 japanese-interpreter/node_modules/
