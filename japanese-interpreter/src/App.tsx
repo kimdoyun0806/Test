@@ -2,18 +2,26 @@ import { useState } from "react";
 import InterpretPage from "./pages/InterpretPage";
 import NotebookPage from "./pages/NotebookPage";
 import ReviewPage from "./pages/ReviewPage";
-import QuizPage from "./pages/QuizPage";
+import SharePage from "./pages/SharePage";
 import SettingsPage from "./pages/SettingsPage";
 import { loadSettings, saveSettings, type AppSettings } from "./services/storage/settings";
+import {
+  MicIcon,
+  BookIcon,
+  RepeatIcon,
+  ShareIcon,
+  SettingsIcon,
+} from "./components/common/Icons";
+import type { ReactNode } from "react";
 
-type Tab = "interpret" | "notebook" | "review" | "quiz" | "settings";
+type Tab = "interpret" | "notebook" | "review" | "share" | "settings";
 
-const TABS: { id: Tab; icon: string; label: string }[] = [
-  { id: "interpret", icon: "🎙️", label: "통역" },
-  { id: "notebook", icon: "📒", label: "어휘장" },
-  { id: "review", icon: "🔁", label: "복습" },
-  { id: "quiz", icon: "✏️", label: "퀴즈" },
-  { id: "settings", icon: "⚙️", label: "설정" },
+const TABS: { id: Tab; icon: ReactNode; label: string }[] = [
+  { id: "interpret", icon: <MicIcon />, label: "통역" },
+  { id: "notebook", icon: <BookIcon />, label: "어휘장" },
+  { id: "review", icon: <RepeatIcon />, label: "복습" },
+  { id: "share", icon: <ShareIcon />, label: "공유" },
+  { id: "settings", icon: <SettingsIcon />, label: "설정" },
 ];
 
 export default function App() {
@@ -31,14 +39,14 @@ export default function App() {
   return (
     <>
       <header className="app-header">
-        <span className="app-logo">🎙️ 젠지</span>
+        <span className="app-logo">젠지</span>
         <span className="app-tagline">全字 · 모든 글자를 내 것으로</span>
       </header>
       <main className="app-main">
         {tab === "interpret" && <InterpretPage settings={settings} />}
         {tab === "notebook" && <NotebookPage onStartReview={() => setTab("review")} />}
         {tab === "review" && <ReviewPage />}
-        {tab === "quiz" && <QuizPage />}
+        {tab === "share" && <SharePage />}
         {tab === "settings" && (
           <SettingsPage settings={settings} onChange={updateSettings} />
         )}

@@ -14,6 +14,7 @@ interface Props {
 export default function SettingsPage({ settings, onChange }: Props) {
   const [cacheCount, setCacheCount] = useState<number | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [keyDraft, setKeyDraft] = useState("");
 
   useEffect(() => {
     void countAnalysisCache().then(setCacheCount);
@@ -48,16 +49,46 @@ export default function SettingsPage({ settings, onChange }: Props) {
       <div className="card">
         <div className="settings-row">
           <label>Anthropic API 키</label>
-          <input
-            type="password"
-            placeholder="sk-ant-..."
-            value={settings.apiKey}
-            onChange={(e) => onChange({ apiKey: e.target.value.trim() })}
-          />
+          <p className="muted" style={{ marginTop: 0 }}>
+            {settings.apiKey
+              ? `저장된 키: sk-ant-••••${settings.apiKey.slice(-4)} ✅`
+              : "저장된 키가 없습니다."}
+          </p>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              type="password"
+              placeholder="새 API 키 입력 (sk-ant-...)"
+              value={keyDraft}
+              onChange={(e) => setKeyDraft(e.target.value)}
+              style={{ flex: 1 }}
+            />
+            <button
+              className="btn btn-primary"
+              disabled={!keyDraft.trim()}
+              onClick={() => {
+                onChange({ apiKey: keyDraft.trim() });
+                setKeyDraft("");
+                setMessage("API 키를 저장했습니다.");
+              }}
+            >
+              저장
+            </button>
+            {settings.apiKey && (
+              <button
+                className="btn"
+                onClick={() => {
+                  onChange({ apiKey: "" });
+                  setMessage("API 키를 삭제했습니다.");
+                }}
+              >
+                삭제
+              </button>
+            )}
+          </div>
           <p className="muted">
-            키는 이 브라우저의 localStorage에만 저장되며 서버로 전송되지 않습니다. 공용
-            PC에서는 사용하지 마세요. 지출 한도는 Anthropic 콘솔(console.anthropic.com)에서
-            설정할 수 있습니다.
+            키는 이 브라우저의 localStorage에만 저장되며 서버로 전송되지 않습니다. 화면에는
+            끝 4자리만 표시됩니다. 공용 PC에서는 사용하지 마세요. 지출 한도는 Anthropic
+            콘솔(console.anthropic.com)에서 설정할 수 있습니다.
           </p>
         </div>
         <div className="settings-row">

@@ -1,28 +1,49 @@
-/* 세그먼트 색상 팔레트 (6색) — 라이트/다크 대비 확보 */
+/* 디자인 토큰 — 토스식 미니멀 (design-guidelines.md 기준) */
 :root {
-  --seg-color-0: #2563eb; /* blue */
-  --seg-color-1: #dc2626; /* red */
-  --seg-color-2: #16a34a; /* green */
-  --seg-color-3: #d97706; /* amber */
-  --seg-color-4: #9333ea; /* purple */
-  --seg-color-5: #0891b2; /* cyan */
+  /* segment palette (6색) — 일본어↔한국어 의미 매핑용 */
+  --seg-color-0: #2563eb;
+  --seg-color-1: #dc2626;
+  --seg-color-2: #16a34a;
+  --seg-color-3: #d97706;
+  --seg-color-4: #9333ea;
+  --seg-color-5: #0891b2;
 
-  --seg-bg-0: #2563eb22;
-  --seg-bg-1: #dc262622;
-  --seg-bg-2: #16a34a22;
-  --seg-bg-3: #d9770622;
-  --seg-bg-4: #9333ea22;
-  --seg-bg-5: #0891b222;
+  --seg-bg-0: #2563eb1a;
+  --seg-bg-1: #dc26261a;
+  --seg-bg-2: #16a34a1a;
+  --seg-bg-3: #d977061a;
+  --seg-bg-4: #9333ea1a;
+  --seg-bg-5: #0891b21a;
 
-  --color-bg: #f8fafc;
+  /* surface */
+  --color-bg: #f2f4f6;
   --color-card: #ffffff;
-  --color-text: #1e293b;
-  --color-text-muted: #64748b;
-  --color-border: #e2e8f0;
-  --color-primary: #2563eb;
-  --color-danger: #dc2626;
-  --color-success: #16a34a;
-  --color-warning: #d97706;
+  --color-card-2: #f2f4f6;
+
+  /* text */
+  --color-text: #191f28;
+  --color-text-muted: #8b95a1;
+
+  /* border — 구분선/포커스 링 전용 (카드 테두리로 쓰지 않음) */
+  --color-border: rgba(15, 23, 42, 0.06);
+
+  /* accent */
+  --color-primary: #3182f6;
+  --color-primary-pressed: #2272eb;
+  --color-success: #12b886;
+  --color-danger: #f0393e;
+  --color-warning: #f59e0b;
+
+  /* elevation */
+  --shadow-card: 0 2px 8px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-fab: 0 8px 20px rgba(49, 130, 246, 0.35);
+  --shadow-tabbar: 0 -2px 12px rgba(15, 23, 42, 0.05);
+
+  /* typography */
+  --font-sans:
+    "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Noto Sans KR",
+    "Malgun Gothic", sans-serif;
+  --font-jp: "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Noto Sans KR", sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -34,21 +55,30 @@
     --seg-color-4: #c084fc;
     --seg-color-5: #22d3ee;
 
-    --seg-bg-0: #60a5fa2e;
-    --seg-bg-1: #f871712e;
-    --seg-bg-2: #4ade802e;
-    --seg-bg-3: #fbbf242e;
-    --seg-bg-4: #c084fc2e;
-    --seg-bg-5: #22d3ee2e;
+    --seg-bg-0: #60a5fa38;
+    --seg-bg-1: #f8717138;
+    --seg-bg-2: #4ade8038;
+    --seg-bg-3: #fbbf2438;
+    --seg-bg-4: #c084fc38;
+    --seg-bg-5: #22d3ee38;
 
-    --color-bg: #0f172a;
-    --color-card: #1e293b;
-    --color-text: #e2e8f0;
-    --color-text-muted: #94a3b8;
-    --color-border: #334155;
-    --color-primary: #60a5fa;
-    --color-danger: #f87171;
-    --color-success: #4ade80;
-    --color-warning: #fbbf24;
+    --color-bg: #101114;
+    --color-card: #1c1e22;
+    --color-card-2: #26282d;
+
+    --color-text: #f2f3f5;
+    --color-text-muted: #9aa5b1;
+
+    --color-border: rgba(255, 255, 255, 0.08);
+
+    --color-primary: #4f9cff;
+    --color-primary-pressed: #7ab4ff;
+    --color-success: #2ed8a7;
+    --color-danger: #ff6b6b;
+    --color-warning: #ffb84d;
+
+    --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.32);
+    --shadow-fab: 0 8px 20px rgba(79, 156, 255, 0.4);
+    --shadow-tabbar: 0 -2px 12px rgba(0, 0, 0, 0.4);
   }
 }

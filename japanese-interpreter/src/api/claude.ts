@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
+import { z } from "zod";
 import {
   WireAnalysisSchema,
   fromWire,
@@ -28,6 +29,30 @@ export const ANALYSIS_SYSTEM_PROMPT = `너는 한국인 일본어 학습자를 �
 export interface AnalyzeOptions {
   apiKey: string;
   model: string;
+}
+
+const KO_TO_JA_PROMPT = `너는 한국어 문장을 자연스러운 일본어로 옮기는 번역가다. 일상 회화체(です・ます체)를 기본으로, 간결하고 자연스럽게 번역한다. JSON으로만 응답한다. ja 필드에 일본어 번역문만 넣는다.`;
+
+const KoToJaSchema = z.object({ ja: z.string() });
+
+/** 한국어 문장 → 자연스러운 일본어 번역 (이후 일반 분석 파이프라인에 넣는다) */
+export async function translateKoToJa(korean: string, opts: AnalyzeOptions): Promise<string> {
+  const client = new Anthropic({ apiKey: opts.apiKey, dangerouslyAllowBrowser: true });
+  const res = await client.messages.parse({
+    model: opts.model,
+    max_tokens: 1000,
+    system: [
+      { type: "text", text: KO_TO_JA_PROMPT, cache_control: { type: "ephemeral" } },
+    ],
+    messages: [{ role: "user", content: korean }],
+    output_config: {
+      ...(supportsEffort(opts.model) ? { effort: "low" as const } : {}),
+      format: zodOutputFormat(KoToJaSchema),
+    },
+  });
+  const ja = res.parsed_output?.ja?.trim();
+  if (!ja) throw new Error("일본어 번역에 실패했습니다.");
+  return ja;
 }
 
 /** effort 파라미터를 지원하지 않는 모델 (Haiku 4.5 등 — 보내면 400) */

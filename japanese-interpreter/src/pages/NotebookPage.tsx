@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
+import type { Analysis } from "../types/analysis";
 import type { VocabCard } from "../services/storage/db";
 import { deleteVocab, listVocab, listDueVocab } from "../services/storage/vocabStore";
+import { getCachedAnalysis } from "../services/storage/analysisCache";
 import { speakJapanese, hasJapaneseVoice } from "../services/speech/tts";
+import AnalyzedSentenceView from "../components/interpret/AnalyzedSentenceView";
 
 interface Props {
   onStartReview: () => void;
@@ -9,14 +12,41 @@ interface Props {
 
 type Filter = "all" | "word" | "sentence";
 
+/** 저장된 문장(세그먼트 카드 묶음) 그룹 */
+interface SentenceGroup {
+  source: string;
+  cards: VocabCard[];
+  analysis?: Analysis;
+}
+
 export default function NotebookPage({ onStartReview }: Props) {
-  const [cards, setCards] = useState<VocabCard[]>([]);
+  const [words, setWords] = useState<VocabCard[]>([]);
+  const [groups, setGroups] = useState<SentenceGroup[]>([]);
   const [dueCount, setDueCount] = useState(0);
   const [filter, setFilter] = useState<Filter>("all");
   const [search, setSearch] = useState("");
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
-    setCards(await listVocab());
+    const all = await listVocab();
+    setWords(all.filter((c) => c.type === "word"));
+
+    const sentenceCards = all.filter((c) => c.type === "sentence");
+    const bySource = new Map<string, VocabCard[]>();
+    for (const c of sentenceCards) {
+      const list = bySource.get(c.sourceSentence) ?? [];
+      list.push(c);
+      bySource.set(c.sourceSentence, list);
+    }
+    const groupList: SentenceGroup[] = [];
+    for (const [source, cards] of bySource) {
+      const cached = await getCachedAnalysis(source);
+      groupList.push({ source, cards, analysis: cached?.analysis });
+    }
+    groupList.sort(
+      (a, b) => Math.max(...b.cards.map((c) => c.createdAt)) - Math.max(...a.cards.map((c) => c.createdAt)),
+    );
+    setGroups(groupList);
     setDueCount((await listDueVocab()).length);
   }, []);
 
@@ -24,11 +54,20 @@ export default function NotebookPage({ onStartReview }: Props) {
     void reload();
   }, [reload]);
 
-  const filtered = cards.filter((c) => {
-    if (filter !== "all" && c.type !== filter) return false;
-    if (search && !c.front.includes(search) && !c.meaningKo.includes(search)) return false;
-    return true;
-  });
+  const matchesSearch = (text: string) => !search || text.includes(search);
+
+  const visibleWords =
+    filter === "sentence"
+      ? []
+      : words.filter((c) => matchesSearch(c.front) || matchesSearch(c.meaningKo));
+  const visibleGroups =
+    filter === "word"
+      ? []
+      : groups.filter(
+          (g) => matchesSearch(g.source) || g.cards.some((c) => matchesSearch(c.meaningKo)),
+        );
+
+  const isEmpty = visibleWords.length === 0 && visibleGroups.length === 0;
 
   return (
     <div>
@@ -55,14 +94,70 @@ export default function NotebookPage({ onStartReview }: Props) {
         </select>
       </div>
 
-      {filtered.length === 0 && (
+      {isEmpty && (
         <div className="empty-state">
           <p>저장된 항목이 없습니다.</p>
           <p className="muted">통역 화면에서 단어를 탭하거나 ⭐ 문장저장을 눌러 보세요.</p>
         </div>
       )}
 
-      {filtered.map((card) => (
+      {visibleGroups.map((group) => (
+        <div key={group.source} className="card">
+          {group.analysis ? (
+            <>
+              {expanded === group.source ? (
+                <AnalyzedSentenceView analysis={group.analysis} showGrammar={true} />
+              ) : (
+                <>
+                  <p style={{ margin: "0 0 4px", fontSize: "1.1rem" }}>{group.source}</p>
+                  <p className="muted" style={{ margin: 0 }}>
+                    {group.analysis.translation_ko}
+                  </p>
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              <p style={{ margin: "0 0 4px", fontSize: "1.1rem" }}>{group.source}</p>
+              <p className="muted" style={{ margin: 0 }}>
+                {group.cards.map((c) => c.meaningKo).join(" ")}
+              </p>
+            </>
+          )}
+          <div className="card-actions">
+            {group.analysis && (
+              <button
+                className="btn btn-sm"
+                onClick={() => setExpanded(expanded === group.source ? null : group.source)}
+              >
+                {expanded === group.source ? "접기" : "🎨 분석 보기"}
+              </button>
+            )}
+            <button
+              className="btn btn-sm"
+              disabled={!hasJapaneseVoice()}
+              onClick={() => speakJapanese(group.source)}
+            >
+              🔊
+            </button>
+            <span className="muted" style={{ alignSelf: "center" }}>
+              복습 카드 {group.cards.length}개
+            </span>
+            <button
+              className="btn btn-sm"
+              style={{ marginLeft: "auto" }}
+              onClick={async () => {
+                for (const c of group.cards) await deleteVocab(c.id);
+                void reload();
+              }}
+            >
+              🗑️
+            </button>
+          </div>
+        </div>
+      ))}
+
+      {visibleWords.map((card) => (
         <div key={card.id} className="card">
           <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
             <div>
@@ -75,8 +170,7 @@ export default function NotebookPage({ onStartReview }: Props) {
               <span>{card.meaningKo}</span>
               <br />
               <span className="muted">
-                {card.type === "word" ? "단어" : "문장"} · 다음 복습:{" "}
-                {new Date(card.srs.dueAt).toLocaleDateString("ko-KR")}
+                단어 · 다음 복습: {new Date(card.srs.dueAt).toLocaleDateString("ko-KR")}
               </span>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>

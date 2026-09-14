@@ -70,10 +70,10 @@ export default function ReviewPage() {
               <p style={{ fontSize: "1.1rem", margin: "8px 0" }}>{current.meaningKo}</p>
             </div>
             <div className="grade-buttons">
-              <button className="btn" onClick={() => handleGrade(1)}>다시</button>
-              <button className="btn" onClick={() => handleGrade(3)}>어려움</button>
+              <button className="btn grade-again" onClick={() => handleGrade(1)}>다시</button>
+              <button className="btn grade-hard" onClick={() => handleGrade(3)}>어려움</button>
               <button className="btn" onClick={() => handleGrade(4)}>보통</button>
-              <button className="btn btn-primary" onClick={() => handleGrade(5)}>쉬움</button>
+              <button className="btn grade-easy" onClick={() => handleGrade(5)}>쉬움</button>
             </div>
           </>
         )}

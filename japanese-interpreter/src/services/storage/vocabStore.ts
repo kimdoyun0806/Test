@@ -58,24 +58,55 @@ export async function saveWord(
   return true;
 }
 
-/** 문장 저장 */
-export async function saveSentence(analysis: Analysis): Promise<boolean> {
-  if (await existsByFront(analysis.sentence_jp, "sentence")) return false;
+/**
+ * 문장 저장 — 복습이 부담스럽지 않도록 의미 구간(세그먼트)별 한 줄 카드로 저장한다.
+ * 새로 추가된 카드 수를 반환한다 (0 = 이미 전부 저장됨).
+ */
+export async function saveSentence(analysis: Analysis): Promise<number> {
   const db = await getDB();
-  await db.put("vocab", {
-    id: crypto.randomUUID(),
-    type: "sentence",
-    front: analysis.sentence_jp,
-    readingKana: analysis.tokens.map((t) => t.reading_kana).join(""),
-    readingHangul: analysis.tokens.map((t) => t.hangul).join(" "),
-    romaji: analysis.tokens.map((t) => t.romaji).join(" "),
-    meaningKo: analysis.translation_ko,
-    sourceSentence: cacheKey(analysis.sentence_jp),
-    level: null,
-    srs: initialSrsState(),
-    createdAt: Date.now(),
-  });
-  return true;
+  const source = cacheKey(analysis.sentence_jp);
+  const existing = await db.getAll("vocab");
+  let added = 0;
+
+  const entries =
+    analysis.segments.length > 0
+      ? analysis.segments.map((seg, i) => {
+          const segTokens = analysis.tokens.filter((t) => t.segment_index === i);
+          return {
+            front: seg.jp_text,
+            readingKana: segTokens.map((t) => t.reading_kana).join(""),
+            readingHangul: segTokens.map((t) => t.hangul).join(" "),
+            romaji: segTokens.map((t) => t.romaji).join(" "),
+            meaningKo: seg.ko_text,
+          };
+        })
+      : [
+          {
+            front: analysis.sentence_jp,
+            readingKana: analysis.tokens.map((t) => t.reading_kana).join(""),
+            readingHangul: analysis.tokens.map((t) => t.hangul).join(" "),
+            romaji: analysis.tokens.map((t) => t.romaji).join(" "),
+            meaningKo: analysis.translation_ko,
+          },
+        ];
+
+  for (const entry of entries) {
+    const dup = existing.some(
+      (c) => c.type === "sentence" && c.front === entry.front && c.sourceSentence === source,
+    );
+    if (dup) continue;
+    await db.put("vocab", {
+      id: crypto.randomUUID(),
+      type: "sentence",
+      ...entry,
+      sourceSentence: source,
+      level: null,
+      srs: initialSrsState(),
+      createdAt: Date.now(),
+    });
+    added++;
+  }
+  return added;
 }
 
 export interface ExportData {

@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import type { SentenceCardData } from "../../hooks/useAnalysis";
 import type { AnalysisToken } from "../../types/analysis";
-import RubyToken from "./RubyToken";
-import SegmentedTranslation from "./SegmentedTranslation";
+import AnalyzedSentenceView from "./AnalyzedSentenceView";
 import PronunciationPractice from "../practice/PronunciationPractice";
 import { speakJapanese, hasJapaneseVoice } from "../../services/speech/tts";
 import { saveWord, saveSentence } from "../../services/storage/vocabStore";
@@ -16,7 +15,7 @@ interface Props {
 }
 
 /** 분석 중 카드 — 경과 시간을 표시해 대기 체감을 줄인다 */
-function LoadingCard({ sentence }: { sentence: string }) {
+function LoadingCard({ sentence, translating }: { sentence: string; translating: boolean }) {
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
     const timer = setInterval(() => setElapsed((e) => e + 1), 1000);
@@ -25,7 +24,7 @@ function LoadingCard({ sentence }: { sentence: string }) {
   return (
     <div className="card">
       <p className="muted" style={{ margin: 0 }}>
-        「{sentence}」 분석 중… {elapsed}초
+        「{sentence}」 {translating ? "일본어로 번역 후 분석" : "분석"} 중… {elapsed}초
       </p>
       <p className="muted" style={{ margin: "4px 0 0", fontSize: 12 }}>
         문장 길이에 따라 보통 3~15초 걸립니다. 같은 문장은 다음부터 즉시 표시돼요.
@@ -41,12 +40,11 @@ export default function SentenceCard({
   onRemove,
   onToast,
 }: Props) {
-  const [highlightedSegment, setHighlightedSegment] = useState<number | null>(null);
   const [selectedToken, setSelectedToken] = useState<AnalysisToken | null>(null);
   const [practicing, setPracticing] = useState(false);
 
   if (card.status === "loading") {
-    return <LoadingCard sentence={card.sentence} />;
+    return <LoadingCard sentence={card.sentence} translating={!!card.sourceKo} />;
   }
 
   if (card.status === "error" || !card.analysis) {
@@ -72,51 +70,33 @@ export default function SentenceCard({
 
   const handleSaveSentence = async () => {
     const added = await saveSentence(analysis);
-    onToast(added ? "문장을 어휘장에 저장했습니다." : "이미 저장된 문장입니다.");
+    onToast(
+      added > 0
+        ? `문장을 저장했습니다. 복습 카드 ${added}개가 만들어졌어요.`
+        : "이미 저장된 문장입니다.",
+    );
   };
 
   return (
     <div className="card">
+      {card.sourceKo && (
+        <p className="muted" style={{ marginTop: 0 }}>
+          🇰🇷 입력: {card.sourceKo}
+        </p>
+      )}
       {card.degraded && (
         <p className="muted" style={{ marginTop: 0 }}>
           ⚠️ 구간 매핑 검증에 실패해 색상 없이 표시합니다.
         </p>
       )}
-      <div className="token-row">
-        {analysis.tokens.map((token, i) => (
-          <RubyToken
-            key={i}
-            token={token}
-            colorEnabled={colorEnabled}
-            showRomaji={showRomaji}
-            showHangul={showHangul}
-            highlighted={colorEnabled && highlightedSegment === token.segment_index}
-            onHover={(seg) => colorEnabled && setHighlightedSegment(seg)}
-            onClick={() => setSelectedToken(token)}
-          />
-        ))}
-      </div>
 
-      <SegmentedTranslation
+      <AnalyzedSentenceView
         analysis={analysis}
         colorEnabled={colorEnabled}
-        highlightedSegment={highlightedSegment}
-        onHover={setHighlightedSegment}
+        showRomaji={showRomaji}
+        showHangul={showHangul}
+        onTokenClick={setSelectedToken}
       />
-
-      {analysis.grammar_points.length > 0 && (
-        <details className="grammar-section">
-          <summary>📖 문법 포인트 {analysis.grammar_points.length}개</summary>
-          {analysis.grammar_points.map((g, i) => (
-            <div key={i} className="grammar-item">
-              <span className="pattern">{g.pattern}</span>{" "}
-              <span className="muted">({g.jp_example})</span>
-              <br />
-              {g.explanation_ko}
-            </div>
-          ))}
-        </details>
-      )}
 
       {practicing && (
         <PronunciationPractice analysis={analysis} onClose={() => setPracticing(false)} />

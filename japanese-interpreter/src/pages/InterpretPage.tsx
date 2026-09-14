@@ -5,13 +5,16 @@ import { useSpeechRecognition } from "../hooks/useSpeechRecognition";
 import { containsJapanese, splitSentences } from "../services/sentenceSplit";
 import { MOCK_EXAMPLE_SENTENCE } from "../api/mockClient";
 import SentenceCard from "../components/interpret/SentenceCard";
+import { MicIcon, StopIcon } from "../components/common/Icons";
 
 interface Props {
   settings: AppSettings;
 }
 
+const HANGUL_RE = /[가-힯]/;
+
 export default function InterpretPage({ settings }: Props) {
-  const { cards, analyze, removeCard } = useAnalysis(settings);
+  const { cards, analyze, analyzeKorean, removeCard } = useAnalysis(settings);
   const [text, setText] = useState("");
   const [toast, setToast] = useState<string | null>(null);
 
@@ -22,7 +25,7 @@ export default function InterpretPage({ settings }: Props) {
 
   const analyzeText = useCallback(
     (input: string) => {
-      for (const sentence of splitSentences(input)) void analyze(sentence);
+      for (const sentence of splitSentences(input)) analyze(sentence);
     },
     [analyze],
   );
@@ -41,12 +44,17 @@ export default function InterpretPage({ settings }: Props) {
   });
 
   const handleSubmit = () => {
-    if (!text.trim()) return;
-    if (!containsJapanese(text)) {
-      showToast("일본어 문자가 없는 입력이에요. 일본어 문장을 입력해 주세요.");
+    const input = text.trim();
+    if (!input) return;
+    if (containsJapanese(input)) {
+      analyzeText(input);
+    } else if (HANGUL_RE.test(input)) {
+      // 한국어 입력 → 일본어로 번역 후 동일한 분석 카드 생성
+      analyzeKorean(input);
+    } else {
+      showToast("일본어 또는 한국어 문장을 입력해 주세요.");
       return;
     }
-    analyzeText(text);
     setText("");
   };
 
@@ -71,8 +79,9 @@ export default function InterpretPage({ settings }: Props) {
             className={`mic-button${speech.listening ? " listening" : ""}`}
             onClick={speech.toggle}
             title={speech.listening ? "탭하여 종료" : "탭하여 일본어로 말하기"}
+            aria-label={speech.listening ? "음성 인식 종료" : "음성 인식 시작"}
           >
-            {speech.listening ? "⏹" : "🎙️"}
+            {speech.listening ? <StopIcon size={28} /> : <MicIcon size={30} />}
           </button>
           <p className="interim-text" style={{ textAlign: "center" }}>
             {speech.listening ? speech.interim || "일본어로 말해 주세요…" : ""}
@@ -83,7 +92,7 @@ export default function InterpretPage({ settings }: Props) {
 
       <div className="transcript-bar">
         <textarea
-          placeholder="일본어 문장을 입력하세요 (예: 旅行に行くなら、国内派ですか？)"
+          placeholder="일본어 또는 한국어 문장 입력 — 한국어를 쓰면 일본어로 번역해 분석해요"
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
