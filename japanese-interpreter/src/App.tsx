@@ -43,7 +43,10 @@ export default function App() {
         <span className="app-tagline">全字 · 모든 글자를 내 것으로</span>
       </header>
       <main className="app-main">
-        {tab === "interpret" && <InterpretPage settings={settings} />}
+        {/* 통역 화면은 항상 마운트 유지 — 탭 이동 중에도 분석이 계속되고 카드가 보존됨 */}
+        <div style={{ display: tab === "interpret" ? "block" : "none" }}>
+          <InterpretPage settings={settings} active={tab === "interpret"} />
+        </div>
         {tab === "notebook" && <NotebookPage onStartReview={() => setTab("review")} />}
         {tab === "review" && <ReviewPage />}
         {tab === "share" && <SharePage />}

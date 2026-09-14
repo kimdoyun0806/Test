@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { AppSettings } from "../services/storage/settings";
 import { useAnalysis } from "../hooks/useAnalysis";
 import { useSpeechRecognition } from "../hooks/useSpeechRecognition";
@@ -11,11 +11,13 @@ import { toKana } from "wanakana";
 
 interface Props {
   settings: AppSettings;
+  /** 현재 이 탭이 보이는지 — 다른 탭으로 이동하면 마이크를 끈다 */
+  active?: boolean;
 }
 
 const HANGUL_RE = /[가-힯]/;
 
-export default function InterpretPage({ settings }: Props) {
+export default function InterpretPage({ settings, active = true }: Props) {
   const { cards, analyze, analyzeKorean, removeCard } = useAnalysis(settings);
   const [text, setText] = useState("");
   const [toast, setToast] = useState<string | null>(null);
@@ -48,6 +50,13 @@ export default function InterpretPage({ settings }: Props) {
     }
     analyzeText(finalText);
   });
+
+  // 다른 탭으로 이동하면 마이크 종료 (백그라운드 녹음 방지)
+  const speechStop = speech.stop;
+  const speechListening = speech.listening;
+  useEffect(() => {
+    if (!active && speechListening) speechStop();
+  }, [active, speechListening, speechStop]);
 
   const handleSubmit = () => {
     const input = text.trim();
