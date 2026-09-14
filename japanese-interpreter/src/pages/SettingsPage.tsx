@@ -6,6 +6,84 @@ import {
   proxyEnabled,
   setAdminCode,
 } from "../services/auth";
+import { ENV_PROXY_PASSWORD, ENV_PROXY_URL } from "../services/storage/settings";
+
+/** 프록시 연결 문제를 화면에서 바로 확인하는 진단 도구 */
+function Diagnostics() {
+  const [lines, setLines] = useState<string[]>([]);
+  const [running, setRunning] = useState(false);
+
+  const run = async () => {
+    setRunning(true);
+    const out: string[] = [];
+    const base = ENV_PROXY_URL.replace(/\/+$/, "");
+    out.push(`내장 URL: ${base || "(없음)"}`);
+    out.push(`비밀번호 내장: ${ENV_PROXY_PASSWORD ? "예" : "아니오"}`);
+
+    // 1) GET /usage
+    try {
+      const t0 = performance.now();
+      const res = await fetch(`${base}/usage`, {
+        headers: { "x-access-password": ENV_PROXY_PASSWORD },
+      });
+      const ms = Math.round(performance.now() - t0);
+      out.push(`GET /usage → HTTP ${res.status} (${ms}ms): ${(await res.text()).slice(0, 120)}`);
+    } catch (e) {
+      out.push(`GET /usage → 실패: ${e instanceof Error ? `${e.name}: ${e.message}` : String(e)}`);
+    }
+
+    // 2) POST /v1/messages (초소형 요청 — 분석 횟수에 포함 안 됨)
+    try {
+      const t0 = performance.now();
+      const res = await fetch(`${base}/v1/messages`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-access-password": ENV_PROXY_PASSWORD,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: "claude-haiku-4-5",
+          max_tokens: 1,
+          messages: [{ role: "user", content: "hi" }],
+        }),
+      });
+      const ms = Math.round(performance.now() - t0);
+      out.push(`POST /v1/messages → HTTP ${res.status} (${ms}ms): ${(await res.text()).slice(0, 120)}`);
+    } catch (e) {
+      out.push(
+        `POST /v1/messages → 실패: ${e instanceof Error ? `${e.name}: ${e.message}` : String(e)}`,
+      );
+    }
+
+    setLines(out);
+    setRunning(false);
+  };
+
+  return (
+    <div className="card">
+      <h3 style={{ marginTop: 0 }}>연결 진단</h3>
+      <button className="btn btn-sm" disabled={running} onClick={() => void run()}>
+        {running ? "진단 중…" : "🔧 연결 테스트 실행"}
+      </button>
+      {lines.length > 0 && (
+        <pre
+          style={{
+            marginTop: 10,
+            fontSize: 12,
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-all",
+            background: "var(--color-card-2)",
+            borderRadius: 10,
+            padding: 10,
+          }}
+        >
+          {lines.join("\n\n")}
+        </pre>
+      )}
+    </div>
+  );
+}
 
 /** 최소 설정 화면 — 관리자 코드 입력 (관리자는 일일 한도 없이 사용) */
 export default function SettingsPage() {
@@ -101,6 +179,8 @@ export default function SettingsPage() {
         )}
         {message && <p className="muted">{message}</p>}
       </div>
+
+      <Diagnostics />
     </div>
   );
 }
