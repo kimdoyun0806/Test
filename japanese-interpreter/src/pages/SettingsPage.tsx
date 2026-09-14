@@ -60,12 +60,62 @@ function Diagnostics() {
     setRunning(false);
   };
 
+  /** 카운트 동작 검증: 사용량 조회 → 분석형 초소형 호출 → 사용량 재조회 */
+  const runCountTest = async () => {
+    setRunning(true);
+    const out: string[] = [];
+    const base = ENV_PROXY_URL.replace(/\/+$/, "");
+    const headers = { "x-access-password": ENV_PROXY_PASSWORD };
+    const getUsage = async () => {
+      const res = await fetch(`${base}/usage`, { headers });
+      return (await res.json()) as { used: number; limit: number; admin: boolean; limited: boolean };
+    };
+    try {
+      const before = await getUsage();
+      out.push(
+        `사전 조회: used=${before.used}/${before.limit}, admin=${before.admin}, limited(KV연결)=${before.limited}`,
+      );
+      if (!before.limited) {
+        out.push("⚠️ limited=false → Worker에 USAGE(KV) 바인딩이 안 잡혀 있습니다.");
+      }
+      const res = await fetch(`${base}/v1/messages`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "content-type": "application/json",
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: "claude-haiku-4-5",
+          max_tokens: 1,
+          system: [{ type: "text", text: "너는 한국인 일본어 학습자를 위한 문장 분석기다. (진단용 호출)" }],
+          messages: [{ role: "user", content: "hi" }],
+        }),
+      });
+      out.push(`분석형 테스트 호출 → HTTP ${res.status}`);
+      const after = await getUsage();
+      out.push(`사후 조회: used=${after.used}/${after.limit}`);
+      if (after.admin) out.push("ℹ️ 이 브라우저는 관리자 모드 — 카운트되지 않는 것이 정상입니다.");
+      else if (after.used === before.used + 1) out.push("✅ 카운트 정상 동작!");
+      else out.push("❌ 카운트가 증가하지 않았습니다 — Worker 코드/바인딩 확인 필요.");
+    } catch (e) {
+      out.push(`실패: ${e instanceof Error ? `${e.name}: ${e.message}` : String(e)}`);
+    }
+    setLines(out);
+    setRunning(false);
+  };
+
   return (
     <div className="card">
       <h3 style={{ marginTop: 0 }}>연결 진단</h3>
-      <button className="btn btn-sm" disabled={running} onClick={() => void run()}>
-        {running ? "진단 중…" : "🔧 연결 테스트 실행"}
-      </button>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <button className="btn btn-sm" disabled={running} onClick={() => void run()}>
+          {running ? "진단 중…" : "🔧 연결 테스트"}
+        </button>
+        <button className="btn btn-sm" disabled={running} onClick={() => void runCountTest()}>
+          {running ? "진단 중…" : "🔢 카운트 테스트"}
+        </button>
+      </div>
       {lines.length > 0 && (
         <pre
           style={{
