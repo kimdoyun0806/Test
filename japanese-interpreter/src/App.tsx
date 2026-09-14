@@ -30,6 +30,10 @@ export default function App() {
 
   return (
     <>
+      <header className="app-header">
+        <span className="app-logo">🎙️ 젠지</span>
+        <span className="app-tagline">全字 · 모든 글자를 내 것으로</span>
+      </header>
       <main className="app-main">
         {tab === "interpret" && <InterpretPage settings={settings} />}
         {tab === "notebook" && <NotebookPage onStartReview={() => setTab("review")} />}

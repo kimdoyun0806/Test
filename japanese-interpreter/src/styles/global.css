@@ -41,6 +41,23 @@ select {
 }
 
 /* ---------- 레이아웃 ---------- */
+.app-header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 14px 16px 0;
+}
+
+.app-header .app-logo {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.app-header .app-tagline {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
 .app-main {
   flex: 1;
   padding: 16px;
