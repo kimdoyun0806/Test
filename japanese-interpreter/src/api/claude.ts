@@ -19,6 +19,11 @@ export interface AnalyzeOptions {
   model: string;
 }
 
+/** effort 파라미터를 지원하지 않는 모델 (Haiku 4.5 등 — 보내면 400) */
+function supportsEffort(model: string): boolean {
+  return !model.startsWith("claude-haiku");
+}
+
 async function callOnce(
   client: Anthropic,
   model: string,
@@ -36,7 +41,7 @@ async function callOnce(
     ],
     messages,
     output_config: {
-      effort: "low",
+      ...(supportsEffort(model) ? { effort: "low" as const } : {}),
       format: zodOutputFormat(AnalysisSchema),
     },
   });
