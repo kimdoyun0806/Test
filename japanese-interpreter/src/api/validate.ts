@@ -15,10 +15,9 @@ export interface ValidationResult {
 
 /**
  * 분석 결과가 원문과 정합하는지 기계 검증한다.
- * - 토큰 surface 연결 == 원문
- * - 세그먼트 jp_text 연결 == 원문
- * - segment_index 단조 비감소·범위 내
- * - vocab token_index 유효
+ * - 토큰 표기(s) 연결 == 원문
+ * - 세그먼트 일본어(j) 연결 == 원문
+ * - 토큰의 세그먼트 번호(g) 단조 비감소·범위 내
  */
 export function validateAnalysis(analysis: Analysis, original: string): ValidationResult {
   const errors: string[] = [];
@@ -28,7 +27,7 @@ export function validateAnalysis(analysis: Analysis, original: string): Validati
   const tokensOk = tokenJoin === src;
   if (!tokensOk) {
     errors.push(
-      `tokens의 surface를 이어 붙인 결과("${tokenJoin}")가 원문("${src}")과 일치하지 않습니다.`,
+      `토큰 표기(s)를 순서대로 이어 붙인 결과("${tokenJoin}")가 원문("${src}")과 일치하지 않는다.`,
     );
   }
 
@@ -36,7 +35,7 @@ export function validateAnalysis(analysis: Analysis, original: string): Validati
   let segmentsOk = segJoin === src;
   if (!segmentsOk) {
     errors.push(
-      `segments의 jp_text를 이어 붙인 결과("${segJoin}")가 원문("${src}")과 일치하지 않습니다.`,
+      `세그먼트 일본어(j)를 순서대로 이어 붙인 결과("${segJoin}")가 원문("${src}")과 일치하지 않는다.`,
     );
   }
 
@@ -44,7 +43,7 @@ export function validateAnalysis(analysis: Analysis, original: string): Validati
   for (const [i, t] of analysis.tokens.entries()) {
     if (t.segment_index < prev || t.segment_index >= analysis.segments.length) {
       errors.push(
-        `tokens[${i}].segment_index(${t.segment_index})가 범위를 벗어나거나 순서가 역행합니다.`,
+        `${i}번째 토큰의 세그먼트 번호(g=${t.segment_index})가 범위를 벗어나거나 순서가 역행한다.`,
       );
       segmentsOk = false;
       break;
@@ -52,16 +51,10 @@ export function validateAnalysis(analysis: Analysis, original: string): Validati
     prev = t.segment_index;
   }
 
-  for (const [i, v] of analysis.vocab.entries()) {
-    if (v.token_index < 0 || v.token_index >= analysis.tokens.length) {
-      errors.push(`vocab[${i}].token_index(${v.token_index})가 tokens 범위를 벗어납니다.`);
-    }
-  }
-
   return {
     ok: errors.length === 0,
     errors,
-    // 토큰과 vocab은 정상이고 세그먼트 정합만 깨진 경우 → 색상 없이 표시 가능
-    segmentOnlyFailure: tokensOk && !segmentsOk && errors.every((e) => e.includes("segment")),
+    // 토큰은 정상이고 세그먼트 정합만 깨진 경우 → 색상 없이 표시 가능
+    segmentOnlyFailure: tokensOk && !segmentsOk,
   };
 }

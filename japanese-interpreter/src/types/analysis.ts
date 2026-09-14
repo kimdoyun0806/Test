@@ -1,53 +1,50 @@
 import { z } from "zod";
 
 /**
- * 문장 분석 결과의 단일 진실 원천.
- * Claude 구조화 출력(zodOutputFormat)과 UI 컴포넌트 타입에 동시에 사용된다.
+ * API 통신용(wire) 스키마 — 필드명을 축약해 출력 토큰을 줄인다 (생성 속도·비용 절감).
+ * s=표기, k=가나 읽기, r=로마자, h=한글, g=세그먼트 번호, m=뜻, v=JLPT 레벨
  */
+export const WireAnalysisSchema = z.object({
+  tr: z.string(),
+  t: z.array(
+    z.object({
+      s: z.string(),
+      k: z.string(),
+      r: z.string(),
+      h: z.string(),
+      g: z.number().int(),
+      m: z.string(),
+      v: z.enum(["N5", "N4", "N3", "N2", "N1"]).nullable(),
+    }),
+  ),
+  seg: z.array(z.object({ j: z.string(), ko: z.string() })),
+  gr: z.array(z.object({ p: z.string(), ex: z.string(), d: z.string() })),
+});
+export type WireAnalysis = z.infer<typeof WireAnalysisSchema>;
+
+/** 앱 내부·저장용 스키마 (UI가 사용하는 형태) */
 export const AnalysisSchema = z.object({
-  /** 모델이 인식한 원문 (검증용 에코백) */
   sentence_jp: z.string(),
-  /** 자연스러운 한국어 번역 전체 */
   translation_ko: z.string(),
   tokens: z.array(
     z.object({
-      /** 표기 (예: "旅行") — 순서대로 이어 붙이면 원문과 일치해야 함 */
       surface: z.string(),
-      /** 히라가나 읽기 (예: "りょこう") */
       reading_kana: z.string(),
-      /** 모라 단위 하이픈 로마자 (예: "ryo-ko-o") */
       romaji: z.string(),
-      /** 한글 발음 (예: "료코오") */
       hangul: z.string(),
-      /** 소속 의미 세그먼트 인덱스 (0부터) */
       segment_index: z.number().int(),
+      /** 모든 토큰의 한국어 뜻 (조사·어미는 문법 기능 설명). 구버전 캐시에는 없을 수 있음 */
+      meaning_ko: z.string().nullable(),
+      /** 실질어의 JLPT 레벨, 조사·어미는 null */
+      level: z.enum(["N5", "N4", "N3", "N2", "N1"]).nullable(),
     }),
   ),
-  /** 의미 덩어리 — 색 = 배열 인덱스 % 6 (클라이언트가 결정) */
-  segments: z.array(
-    z.object({
-      /** 원문의 연속 부분열 — 순서대로 이으면 원문 전체 */
-      jp_text: z.string(),
-      /** 대응하는 한국어 번역 조각 */
-      ko_text: z.string(),
-    }),
-  ),
+  segments: z.array(z.object({ jp_text: z.string(), ko_text: z.string() })),
   grammar_points: z.array(
     z.object({
-      /** 예: "〜なら" */
       pattern: z.string(),
-      /** 문장 내 해당 부분 (예: "行くなら") */
       jp_example: z.string(),
-      /** 한국어 설명 2~3문장 */
       explanation_ko: z.string(),
-    }),
-  ),
-  vocab: z.array(
-    z.object({
-      /** tokens 배열 참조 인덱스 */
-      token_index: z.number().int(),
-      meaning_ko: z.string(),
-      level: z.enum(["N5", "N4", "N3", "N2", "N1"]).nullable(),
     }),
   ),
 });
@@ -56,6 +53,32 @@ export type Analysis = z.infer<typeof AnalysisSchema>;
 export type AnalysisToken = Analysis["tokens"][number];
 export type AnalysisSegment = Analysis["segments"][number];
 export type GrammarPoint = Analysis["grammar_points"][number];
+
+/** wire → 내부 형태 변환 (sentence_jp는 입력 원문을 클라이언트가 채운다) */
+export function fromWire(wire: WireAnalysis, sentence: string): Analysis {
+  return {
+    sentence_jp: sentence.normalize("NFKC").trim(),
+    translation_ko: wire.tr,
+    tokens: wire.t.map((t) => ({
+      surface: t.s,
+      reading_kana: t.k,
+      romaji: t.r,
+      hangul: t.h,
+      segment_index: t.g,
+      meaning_ko: t.m,
+      level: t.v,
+    })),
+    segments: wire.seg.map((s) => ({ jp_text: s.j, ko_text: s.ko })),
+    grammar_points: wire.gr.map((g) => ({
+      pattern: g.p,
+      jp_example: g.ex,
+      explanation_ko: g.d,
+    })),
+  };
+}
+
+/** 분석 결과 형태가 바뀌면 올려서 구버전 캐시를 무효화한다 */
+export const ANALYSIS_SCHEMA_VERSION = 2;
 
 export const SEGMENT_COLOR_COUNT = 6;
 

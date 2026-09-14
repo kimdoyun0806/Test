@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { SentenceCardData } from "../../hooks/useAnalysis";
 import type { AnalysisToken } from "../../types/analysis";
 import RubyToken from "./RubyToken";
@@ -15,6 +15,25 @@ interface Props {
   onToast: (message: string) => void;
 }
 
+/** 분석 중 카드 — 경과 시간을 표시해 대기 체감을 줄인다 */
+function LoadingCard({ sentence }: { sentence: string }) {
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setElapsed((e) => e + 1), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  return (
+    <div className="card">
+      <p className="muted" style={{ margin: 0 }}>
+        「{sentence}」 분석 중… {elapsed}초
+      </p>
+      <p className="muted" style={{ margin: "4px 0 0", fontSize: 12 }}>
+        문장 길이에 따라 보통 3~15초 걸립니다. 같은 문장은 다음부터 즉시 표시돼요.
+      </p>
+    </div>
+  );
+}
+
 export default function SentenceCard({
   card,
   showRomaji,
@@ -27,11 +46,7 @@ export default function SentenceCard({
   const [practicing, setPracticing] = useState(false);
 
   if (card.status === "loading") {
-    return (
-      <div className="card">
-        <p className="muted">「{card.sentence}」 분석 중…</p>
-      </div>
-    );
+    return <LoadingCard sentence={card.sentence} />;
   }
 
   if (card.status === "error" || !card.analysis) {
@@ -48,17 +63,9 @@ export default function SentenceCard({
 
   const { analysis } = card;
   const colorEnabled = !card.degraded;
-  const vocabByToken = new Map(analysis.vocab.map((v) => [v.token_index, v]));
 
   const handleSaveWord = async (token: AnalysisToken) => {
-    const idx = analysis.tokens.indexOf(token);
-    const vocabEntry = vocabByToken.get(idx);
-    const added = await saveWord(
-      token,
-      vocabEntry?.meaning_ko ?? analysis.translation_ko,
-      vocabEntry?.level ?? null,
-      analysis.sentence_jp,
-    );
+    const added = await saveWord(token, analysis.sentence_jp, analysis.translation_ko);
     onToast(added ? `"${token.surface}" 단어를 어휘장에 저장했습니다.` : "이미 저장된 단어입니다.");
     setSelectedToken(null);
   };
@@ -142,13 +149,11 @@ export default function SentenceCard({
             <p style={{ margin: "0 0 4px" }}>
               {selectedToken.reading_kana} · {selectedToken.romaji} · {selectedToken.hangul}
             </p>
-            <p className="muted" style={{ marginTop: 0 }}>
-              {vocabByToken.get(analysis.tokens.indexOf(selectedToken))?.meaning_ko ??
-                "(개별 뜻 정보 없음 — 문장 번역 참고)"}
-              {(() => {
-                const level = vocabByToken.get(analysis.tokens.indexOf(selectedToken))?.level;
-                return level ? ` · ${level}` : "";
-              })()}
+            <p style={{ marginTop: 0, fontSize: "1.05rem" }}>
+              {selectedToken.meaning_ko ?? "(뜻 정보 없음 — 문장을 다시 분석하면 표시됩니다)"}
+              {selectedToken.level && (
+                <span className="muted"> · {selectedToken.level}</span>
+              )}
             </p>
             <div style={{ display: "flex", gap: 8 }}>
               <button

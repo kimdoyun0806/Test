@@ -23,6 +23,8 @@ export interface CachedAnalysis {
   sentence: string;
   analysis: Analysis;
   model: string;
+  /** 분석 스키마 버전 — 다르면 캐시 미스로 처리 (구버전 데이터는 이 필드가 없음) */
+  schemaVersion?: number;
   createdAt: number;
 }
 

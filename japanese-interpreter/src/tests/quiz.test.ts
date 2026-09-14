@@ -49,8 +49,11 @@ describe("makeFillBlank", () => {
     expect(q!.choices).toHaveLength(0);
   });
 
-  it("vocab이 비어 있으면 null", () => {
-    const empty = { ...RYOKOU, vocab: [] };
+  it("실질어(level 지정) 토큰이 없으면 null", () => {
+    const empty = {
+      ...RYOKOU,
+      tokens: RYOKOU.tokens.map((t) => ({ ...t, level: null })),
+    };
     expect(makeFillBlank(empty, POOL)).toBeNull();
   });
 });

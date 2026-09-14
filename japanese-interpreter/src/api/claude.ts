@@ -1,18 +1,29 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
-import { AnalysisSchema, ESCALATION_MODEL, type Analysis } from "../types/analysis";
+import {
+  WireAnalysisSchema,
+  fromWire,
+  ESCALATION_MODEL,
+  type Analysis,
+} from "../types/analysis";
 import { validateAnalysis } from "./validate";
 
-export const ANALYSIS_SYSTEM_PROMPT = `너는 한국인 일본어 학습자를 위한 문장 분석기다. 입력된 일본어 한 문장을 분석해 JSON으로만 응답한다.
+export const ANALYSIS_SYSTEM_PROMPT = `너는 한국인 일본어 학습자를 위한 문장 분석기다. 입력된 일본어 문장을 분석해 JSON으로만 응답한다.
+
+출력 필드:
+- tr: 자연스러운 한국어 번역 전체
+- t: 토큰 배열 — s=표기, k=히라가나 읽기, r=로마자, h=한글 발음, g=소속 세그먼트 번호(0부터), m=한국어 뜻, v=JLPT 레벨 또는 null
+- seg: 의미 세그먼트 배열 — j=일본어 부분, ko=대응하는 한국어 번역 조각
+- gr: 문법 포인트 배열 — p=문형, ex=문장 내 해당 부분, d=한국어 설명
 
 규칙:
-1. tokens: 문장을 어절(단어+조사 단위)로 분할한다. 모든 tokens[i].surface를 순서대로 이어 붙이면 구두점·공백 포함 원문과 정확히 일치해야 한다. 구두점(、。？！)은 바로 앞 토큰에 붙인다.
-2. romaji: 모라 단위로 하이픈 구분한다. 장음은 모음을 반복 표기한다 (りょこう → "ryo-ko-o", ō/ou 표기 금지). ん은 "n", っ는 뒤 자음 중복(がっこう → "ga-k-ko-o"). 헵번식 기반.
-3. hangul: 한국 일본어 교재 관용 표기. 어두 청음도 격음으로 통일(か=카, た=타), つ=츠, ざ행=자/즈/조, ん=받침 ㄴ/ㅇ(뒤 자음에 따라), っ=받침 ㅅ, 장음=모음 반복(료코오).
-4. segments: 문장을 2~6개의 의미 덩어리로 나눈다. 각 segments[i].jp_text는 원문의 연속 부분열이고, 순서대로 이어 붙이면 원문 전체가 된다. ko_text를 순서대로 이어 붙이면 자연스러운 한국어 번역이 되도록 하며 translation_ko와 의미가 일치해야 한다. 각 토큰의 segment_index는 그 토큰이 포함된 세그먼트 번호(0부터)다.
-5. grammar_points: N5~N3 수준 학습자에게 유용한 문형만 0~3개 (예: 〜なら, 〜たい, 〜派). explanation_ko는 2~3문장, 존댓말.
-6. vocab: 학습 가치가 있는 실질어(명사/동사/형용사) 토큰만 token_index로 지정한다.
-7. sentence_jp에는 입력받은 원문을 그대로 넣는다.`;
+1. t: 어절(단어+조사 단위)로 분할한다. 모든 s를 순서대로 이어 붙이면 구두점·공백 포함 원문과 정확히 일치해야 한다. 구두점(、。？！)은 바로 앞 토큰에 붙인다.
+2. r: 모라 단위 하이픈 구분. 장음은 모음 반복(りょこう → "ryo-ko-o", ō/ou 표기 금지), ん="n", っ=뒤 자음 중복(がっこう → "ga-k-ko-o"). 헵번식 기반.
+3. h: 한국 일본어 교재 관용 표기. 어두 청음도 격음 통일(か=카, た=타), つ=츠, ざ행=자/즈/조, ん=받침 ㄴ/ㅇ, っ=받침 ㅅ, 장음=모음 반복(료코오).
+4. m: 모든 토큰에 필수. 실질어는 뜻(예: 今→"지금"), 조사·어미·활용형은 문법 기능을 짧게(예: は→"~는(주제 조사)", んですが→"~인데요(부드러운 역접)").
+5. v: 실질어(명사·동사·형용사·부사)만 JLPT 레벨(N5~N1), 조사·어미·구두점 토큰은 null.
+6. seg: 문장을 2~6개 의미 덩어리로 나눈다. j를 순서대로 이으면 원문 전체가 되고, ko를 순서대로 이으면 tr과 의미가 같은 자연스러운 번역이 된다. 각 토큰의 g는 소속 세그먼트 번호다.
+7. gr: N5~N3 학습자에게 유용한 문형만 0~3개, d는 1~2문장 존댓말로 간결하게.`;
 
 export interface AnalyzeOptions {
   apiKey: string;
@@ -27,6 +38,7 @@ function supportsEffort(model: string): boolean {
 async function callOnce(
   client: Anthropic,
   model: string,
+  sentence: string,
   messages: Anthropic.MessageParam[],
 ): Promise<Analysis> {
   const res = await client.messages.parse({
@@ -42,11 +54,11 @@ async function callOnce(
     messages,
     output_config: {
       ...(supportsEffort(model) ? { effort: "low" as const } : {}),
-      format: zodOutputFormat(AnalysisSchema),
+      format: zodOutputFormat(WireAnalysisSchema),
     },
   });
   if (!res.parsed_output) throw new Error("분석 결과를 파싱하지 못했습니다.");
-  return res.parsed_output;
+  return fromWire(res.parsed_output, sentence);
 }
 
 /**
@@ -59,21 +71,20 @@ export async function analyzeSentence(sentence: string, opts: AnalyzeOptions): P
   const client = new Anthropic({ apiKey: opts.apiKey, dangerouslyAllowBrowser: true });
   const messages: Anthropic.MessageParam[] = [{ role: "user", content: sentence }];
 
-  const analysis = await callOnce(client, opts.model, messages);
+  const analysis = await callOnce(client, opts.model, sentence, messages);
   const result = validateAnalysis(analysis, sentence);
   if (result.ok) return analysis;
 
   const retryModel = opts.model === ESCALATION_MODEL ? opts.model : ESCALATION_MODEL;
   const retryMessages: Anthropic.MessageParam[] = [
     ...messages,
-    { role: "assistant", content: JSON.stringify(analysis) },
     {
       role: "user",
-      content: `이전 분석에 다음 문제가 있다. 규칙을 지켜 전체 JSON을 다시 생성하라:\n- ${result.errors.join("\n- ")}`,
+      content: `이전 분석에 다음 문제가 있었다. 규칙을 지켜 전체 JSON을 다시 생성하라:\n- ${result.errors.join("\n- ")}`,
     },
   ];
   try {
-    const retried = await callOnce(client, retryModel, retryMessages);
+    const retried = await callOnce(client, retryModel, sentence, retryMessages);
     return retried;
   } catch {
     return analysis;

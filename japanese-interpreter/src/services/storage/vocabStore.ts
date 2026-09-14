@@ -37,9 +37,8 @@ async function existsByFront(front: string, type: VocabCard["type"]): Promise<bo
 /** 단어(토큰) 저장. 이미 같은 표기의 단어가 있으면 저장하지 않고 false 반환 */
 export async function saveWord(
   token: AnalysisToken,
-  meaningKo: string,
-  level: string | null,
   sourceSentence: string,
+  fallbackMeaning?: string,
 ): Promise<boolean> {
   if (await existsByFront(token.surface, "word")) return false;
   const db = await getDB();
@@ -50,9 +49,9 @@ export async function saveWord(
     readingKana: token.reading_kana,
     readingHangul: token.hangul,
     romaji: token.romaji,
-    meaningKo,
+    meaningKo: token.meaning_ko ?? fallbackMeaning ?? "",
     sourceSentence: cacheKey(sourceSentence),
-    level,
+    level: token.level,
     srs: initialSrsState(),
     createdAt: Date.now(),
   });

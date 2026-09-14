@@ -44,27 +44,29 @@ export function shuffle<T>(arr: T[], random: () => number = Math.random): T[] {
   return out;
 }
 
-/** 빈칸 문제 생성. vocab 지정 토큰이 없으면 null */
+/** 빈칸 문제 생성. 실질어(level 지정) 토큰이 없으면 null */
 export function makeFillBlank(
   analysis: Analysis,
   wordPool: VocabCard[],
   random: () => number = Math.random,
 ): FillBlankQuestion | null {
-  if (analysis.vocab.length === 0 || analysis.tokens.length === 0) return null;
-  const pick = analysis.vocab[Math.floor(random() * analysis.vocab.length)];
-  const token = analysis.tokens[pick.token_index];
-  if (!token) return null;
+  const contentIndexes = analysis.tokens
+    .map((t, i) => (t.level !== null ? i : -1))
+    .filter((i) => i >= 0);
+  if (contentIndexes.length === 0) return null;
+  const pickIndex = contentIndexes[Math.floor(random() * contentIndexes.length)];
+  const token = analysis.tokens[pickIndex];
 
   const blanked = analysis.tokens
-    .map((t, i) => (i === pick.token_index ? "____" : t.surface))
+    .map((t, i) => (i === pickIndex ? "____" : t.surface))
     .join("");
 
   // 보기: 정답 + 어휘장의 다른 단어 3개 (같은 level 우선)
   const others = wordPool
     .filter((c) => c.type === "word" && c.front !== token.surface)
     .sort((a, b) => {
-      const aSame = a.level === pick.level ? 0 : 1;
-      const bSame = b.level === pick.level ? 0 : 1;
+      const aSame = a.level === token.level ? 0 : 1;
+      const bSame = b.level === token.level ? 0 : 1;
       return aSame - bSame;
     })
     .slice(0, 3)

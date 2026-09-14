@@ -27,6 +27,8 @@ export async function analyzeMock(sentence: string): Promise<Analysis> {
       romaji: "?",
       hangul: "?",
       segment_index: i,
+      meaning_ko: null,
+      level: null,
     }));
   return {
     sentence_jp: normalized,
@@ -37,7 +39,6 @@ export async function analyzeMock(sentence: string): Promise<Analysis> {
       ko_text: i === 0 ? "(목 모드 번역 앞부분)" : "(목 모드 번역 뒷부분)",
     })),
     grammar_points: [],
-    vocab: [],
   };
 }
 

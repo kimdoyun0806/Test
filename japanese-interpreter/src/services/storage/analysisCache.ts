@@ -1,4 +1,4 @@
-import type { Analysis } from "../../types/analysis";
+import { ANALYSIS_SCHEMA_VERSION, type Analysis } from "../../types/analysis";
 import { getDB, type CachedAnalysis } from "./db";
 
 /** 캐시 키 정규화: NFKC + trim */
@@ -6,9 +6,12 @@ export function cacheKey(sentence: string): string {
   return sentence.normalize("NFKC").trim();
 }
 
+/** 스키마 버전이 다른(구버전) 캐시는 미스로 처리해 재분석을 유도한다 */
 export async function getCachedAnalysis(sentence: string): Promise<CachedAnalysis | undefined> {
   const db = await getDB();
-  return db.get("analysisCache", cacheKey(sentence));
+  const cached = await db.get("analysisCache", cacheKey(sentence));
+  if (cached && cached.schemaVersion !== ANALYSIS_SCHEMA_VERSION) return undefined;
+  return cached;
 }
 
 export async function putCachedAnalysis(
@@ -21,6 +24,7 @@ export async function putCachedAnalysis(
     sentence: cacheKey(sentence),
     analysis,
     model,
+    schemaVersion: ANALYSIS_SCHEMA_VERSION,
     createdAt: Date.now(),
   });
 }

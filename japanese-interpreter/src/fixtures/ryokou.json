@@ -2,14 +2,14 @@
   "sentence_jp": "旅行に行くなら、国内派ですか？海外派ですか？",
   "translation_ko": "여행을 간다면, 국내파입니까? 해외파입니까?",
   "tokens": [
-    { "surface": "旅行", "reading_kana": "りょこう", "romaji": "ryo-ko-o", "hangul": "료코오", "segment_index": 0 },
-    { "surface": "に", "reading_kana": "に", "romaji": "ni", "hangul": "니", "segment_index": 0 },
-    { "surface": "行く", "reading_kana": "いく", "romaji": "i-ku", "hangul": "이쿠", "segment_index": 0 },
-    { "surface": "なら、", "reading_kana": "なら", "romaji": "na-ra", "hangul": "나라", "segment_index": 0 },
-    { "surface": "国内派", "reading_kana": "こくないは", "romaji": "ko-ku-na-i-ha", "hangul": "코쿠나이하", "segment_index": 1 },
-    { "surface": "ですか？", "reading_kana": "ですか", "romaji": "de-su-ka", "hangul": "데스카", "segment_index": 1 },
-    { "surface": "海外派", "reading_kana": "かいがいは", "romaji": "ka-i-ga-i-ha", "hangul": "카이가이하", "segment_index": 2 },
-    { "surface": "ですか？", "reading_kana": "ですか", "romaji": "de-su-ka", "hangul": "데스카", "segment_index": 2 }
+    { "surface": "旅行", "reading_kana": "りょこう", "romaji": "ryo-ko-o", "hangul": "료코오", "segment_index": 0, "meaning_ko": "여행", "level": "N5" },
+    { "surface": "に", "reading_kana": "に", "romaji": "ni", "hangul": "니", "segment_index": 0, "meaning_ko": "~에/~을 (방향·대상 조사)", "level": null },
+    { "surface": "行く", "reading_kana": "いく", "romaji": "i-ku", "hangul": "이쿠", "segment_index": 0, "meaning_ko": "가다", "level": "N5" },
+    { "surface": "なら、", "reading_kana": "なら", "romaji": "na-ra", "hangul": "나라", "segment_index": 0, "meaning_ko": "~한다면 (가정·조건)", "level": null },
+    { "surface": "国内派", "reading_kana": "こくないは", "romaji": "ko-ku-na-i-ha", "hangul": "코쿠나이하", "segment_index": 1, "meaning_ko": "국내파", "level": "N3" },
+    { "surface": "ですか？", "reading_kana": "ですか", "romaji": "de-su-ka", "hangul": "데스카", "segment_index": 1, "meaning_ko": "~입니까? (정중한 의문)", "level": null },
+    { "surface": "海外派", "reading_kana": "かいがいは", "romaji": "ka-i-ga-i-ha", "hangul": "카이가이하", "segment_index": 2, "meaning_ko": "해외파", "level": "N3" },
+    { "surface": "ですか？", "reading_kana": "ですか", "romaji": "de-su-ka", "hangul": "데스카", "segment_index": 2, "meaning_ko": "~입니까? (정중한 의문)", "level": null }
   ],
   "segments": [
     { "jp_text": "旅行に行くなら、", "ko_text": "여행을 간다면," },
@@ -27,11 +27,5 @@
       "jp_example": "国内派",
       "explanation_ko": "명사에 붙어 '~파', 즉 어떤 취향이나 입장을 가진 부류를 나타냅니다. 예: 犬派(강아지파), 猫派(고양이파)."
     }
-  ],
-  "vocab": [
-    { "token_index": 0, "meaning_ko": "여행", "level": "N5" },
-    { "token_index": 2, "meaning_ko": "가다", "level": "N5" },
-    { "token_index": 4, "meaning_ko": "국내파", "level": "N3" },
-    { "token_index": 6, "meaning_ko": "해외파", "level": "N3" }
   ]
 }

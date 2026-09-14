@@ -18,7 +18,7 @@ describe("validateAnalysis", () => {
     broken.tokens.splice(0, 1);
     const result = validateAnalysis(broken, ORIGINAL);
     expect(result.ok).toBe(false);
-    expect(result.errors.some((e) => e.includes("tokens"))).toBe(true);
+    expect(result.errors.some((e) => e.includes("토큰"))).toBe(true);
   });
 
   it("세그먼트 연결이 원문과 다르면 실패한다", () => {
@@ -40,14 +40,6 @@ describe("validateAnalysis", () => {
     broken.tokens[7] = { ...broken.tokens[7], segment_index: 0 };
     const result = validateAnalysis(broken, ORIGINAL);
     expect(result.ok).toBe(false);
-  });
-
-  it("vocab token_index가 범위를 벗어나면 실패한다", () => {
-    const broken = structuredClone(RYOKOU);
-    broken.vocab[0] = { ...broken.vocab[0], token_index: 99 };
-    const result = validateAnalysis(broken, ORIGINAL);
-    expect(result.ok).toBe(false);
-    expect(result.errors.some((e) => e.includes("vocab"))).toBe(true);
   });
 
   it("공백·NFKC 차이는 허용한다", () => {
