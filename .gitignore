@@ -1,19 +1,4 @@
-# 이 저장소는 CPMS 계약관리 매뉴얼만 관리한다.
-# 복원한 사내 소스(src/**)와 작업용 파일은 절대 커밋하지 않는다.
-
-# 기본적으로 최상위 전부 제외
-/*
-
-# 매뉴얼과 이 파일만 예외
-!/.gitignore
-!/New_manual.txt
-
-# GitHub Actions 워크플로 (Pages 배포)
-!/.github/
-
-# 일본어 학습 앱 (japanese-interpreter/)
-!/japanese-interpreter/
-japanese-interpreter/node_modules/
-japanese-interpreter/dist/
-japanese-interpreter/.env
-japanese-interpreter/*.local
+node_modules/
+dist/
+.env
+*.local
