@@ -13,18 +13,17 @@ export const ANALYSIS_SYSTEM_PROMPT = `너는 한국인 일본어 학습자를 �
 
 출력 필드:
 - tr: 자연스러운 한국어 번역 전체
-- t: 토큰 배열 — s=표기, k=히라가나 읽기, r=로마자, h=한글 발음, g=소속 세그먼트 번호(0부터), m=한국어 뜻, v=JLPT 레벨 또는 null
+- t: 토큰 배열 — s=표기, k=히라가나 읽기, g=소속 세그먼트 번호(0부터), m=한국어 뜻, v=JLPT 레벨 또는 null
 - seg: 의미 세그먼트 배열 — j=일본어 부분, ko=대응하는 한국어 번역 조각
 - gr: 문법 포인트 배열 — p=문형, ex=문장 내 해당 부분, d=한국어 설명
 
 규칙:
 1. t: 어절(단어+조사 단위)로 분할한다. 모든 s를 순서대로 이어 붙이면 구두점·공백 포함 원문과 정확히 일치해야 한다. 구두점(、。？！)은 바로 앞 토큰에 붙인다.
-2. r: 모라 단위 하이픈 구분. 장음은 모음 반복(りょこう → "ryo-ko-o", ō/ou 표기 금지), ん="n", っ=뒤 자음 중복(がっこう → "ga-k-ko-o"). 헵번식 기반.
-3. h: 한국 일본어 교재 관용 표기. 어두 청음도 격음 통일(か=카, た=타), つ=츠, ざ행=자/즈/조, ん=받침 ㄴ/ㅇ, っ=받침 ㅅ, 장음=모음 반복(료코오).
-4. m: 모든 토큰에 필수. 실질어는 뜻(예: 今→"지금"), 조사·어미·활용형은 문법 기능을 짧게(예: は→"~는(주제 조사)", んですが→"~인데요(부드러운 역접)").
-5. v: 실질어(명사·동사·형용사·부사)만 JLPT 레벨(N5~N1), 조사·어미·구두점 토큰은 null.
-6. seg: 문장을 2~6개 의미 덩어리로 나눈다. j를 순서대로 이으면 원문 전체가 되고, ko를 순서대로 이으면 tr과 의미가 같은 자연스러운 번역이 된다. 각 토큰의 g는 소속 세그먼트 번호다.
-7. gr: N5~N3 학습자에게 유용한 문형만 0~3개, d는 1~2문장 존댓말로 간결하게.`;
+2. k: 히라가나 읽기만 넣는다 (숫자·라틴 문자는 읽는 소리를 히라가나로, 구두점은 제외). 절대로 뜻이나 설명을 넣지 않는다.
+3. m: 모든 토큰에 필수. 실질어는 뜻(예: 今→"지금"), 조사·어미·활용형은 문법 기능을 짧게(예: は→"~는(주제 조사)", んですが→"~인데요(부드러운 역접)"). 뜻·설명은 오직 m에만 넣는다.
+4. v: 실질어(명사·동사·형용사·부사)만 JLPT 레벨(N5~N1), 조사·어미·구두점 토큰은 null.
+5. seg: 문장을 2~6개 의미 덩어리로 나눈다. j를 순서대로 이으면 원문 전체가 되고, ko를 순서대로 이으면 tr과 의미가 같은 자연스러운 번역이 된다. 각 토큰의 g는 소속 세그먼트 번호다.
+6. gr: N5~N3 학습자에게 유용한 문형만 0~3개, d는 1~2문장 존댓말로 간결하게.`;
 
 export interface AnalyzeOptions {
   apiKey: string;
@@ -99,6 +98,8 @@ export async function analyzeSentence(sentence: string, opts: AnalyzeOptions): P
   const analysis = await callOnce(client, opts.model, sentence, messages);
   const result = validateAnalysis(analysis, sentence);
   if (result.ok) return analysis;
+  // 색상 매핑만 깨진 경우: 재시도(추가 비용·대기) 없이 즉시 색상 없는 표시로 넘긴다
+  if (result.segmentOnlyFailure) return analysis;
 
   const retryModel = opts.model === ESCALATION_MODEL ? opts.model : ESCALATION_MODEL;
   const retryMessages: Anthropic.MessageParam[] = [

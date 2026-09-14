@@ -1,8 +1,10 @@
 import { z } from "zod";
+import { transliterateKana } from "../services/kanaTransliterate";
 
 /**
  * API 통신용(wire) 스키마 — 필드명을 축약해 출력 토큰을 줄인다 (생성 속도·비용 절감).
- * s=표기, k=가나 읽기, r=로마자, h=한글, g=세그먼트 번호, m=뜻, v=JLPT 레벨
+ * s=표기, k=가나 읽기, g=세그먼트 번호, m=뜻, v=JLPT 레벨.
+ * 로마자·한글 발음은 모델에게 시키지 않고 k에서 규칙 변환한다 (정확성+속도).
  */
 export const WireAnalysisSchema = z.object({
   tr: z.string(),
@@ -10,8 +12,6 @@ export const WireAnalysisSchema = z.object({
     z.object({
       s: z.string(),
       k: z.string(),
-      r: z.string(),
-      h: z.string(),
       g: z.number().int(),
       m: z.string(),
       v: z.enum(["N5", "N4", "N3", "N2", "N1"]).nullable(),
@@ -54,20 +54,23 @@ export type AnalysisToken = Analysis["tokens"][number];
 export type AnalysisSegment = Analysis["segments"][number];
 export type GrammarPoint = Analysis["grammar_points"][number];
 
-/** wire → 내부 형태 변환 (sentence_jp는 입력 원문을 클라이언트가 채운다) */
+/** wire → 내부 형태 변환. 로마자·한글 발음은 가나 읽기에서 규칙 생성한다 */
 export function fromWire(wire: WireAnalysis, sentence: string): Analysis {
   return {
     sentence_jp: sentence.normalize("NFKC").trim(),
     translation_ko: wire.tr,
-    tokens: wire.t.map((t) => ({
-      surface: t.s,
-      reading_kana: t.k,
-      romaji: t.r,
-      hangul: t.h,
-      segment_index: t.g,
-      meaning_ko: t.m,
-      level: t.v,
-    })),
+    tokens: wire.t.map((t) => {
+      const { romaji, hangul } = transliterateKana(t.k);
+      return {
+        surface: t.s,
+        reading_kana: t.k,
+        romaji,
+        hangul,
+        segment_index: t.g,
+        meaning_ko: t.m,
+        level: t.v,
+      };
+    }),
     segments: wire.seg.map((s) => ({ jp_text: s.j, ko_text: s.ko })),
     grammar_points: wire.gr.map((g) => ({
       pattern: g.p,
@@ -78,7 +81,7 @@ export function fromWire(wire: WireAnalysis, sentence: string): Analysis {
 }
 
 /** 분석 결과 형태가 바뀌면 올려서 구버전 캐시를 무효화한다 */
-export const ANALYSIS_SCHEMA_VERSION = 2;
+export const ANALYSIS_SCHEMA_VERSION = 3;
 
 export const SEGMENT_COLOR_COUNT = 6;
 

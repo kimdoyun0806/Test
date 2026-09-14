@@ -3,6 +3,7 @@ import type { Analysis } from "../types/analysis";
 import { analyzeSentence, describeApiError, translateKoToJa } from "../api/claude";
 import { analyzeMock } from "../api/mockClient";
 import { getCachedAnalysis, putCachedAnalysis } from "../services/storage/analysisCache";
+import { splitSentences } from "../services/sentenceSplit";
 import { validateAnalysis } from "../api/validate";
 import type { AppSettings } from "../services/storage/settings";
 
@@ -102,7 +103,21 @@ export function useAnalysis(settings: AppSettings) {
             apiKey: settings.apiKey,
             model: settings.model,
           });
-          await runAnalysis(id, ja);
+          // 번역 결과가 여러 문장이면 문장별 카드로 나눠 병렬 분석 (긴 출력 방지 → 속도 개선)
+          const sentences = splitSentences(ja);
+          const [first, ...rest] = sentences.length > 0 ? sentences : [ja];
+          for (const s of rest.reverse()) {
+            const extraId = crypto.randomUUID();
+            setCards((prev) => {
+              const idx = prev.findIndex((c) => c.id === id);
+              const card: SentenceCardData = { id: extraId, sentence: s, status: "loading" };
+              const next = [...prev];
+              next.splice(idx + 1, 0, card);
+              return next;
+            });
+            void runAnalysis(extraId, s);
+          }
+          await runAnalysis(id, first);
         } catch (error) {
           updateCard(id, { status: "error", errorMessage: describeApiError(error) });
         }

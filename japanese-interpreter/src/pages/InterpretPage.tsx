@@ -6,6 +6,7 @@ import { containsJapanese, splitSentences } from "../services/sentenceSplit";
 import { MOCK_EXAMPLE_SENTENCE } from "../api/mockClient";
 import SentenceCard from "../components/interpret/SentenceCard";
 import { MicIcon, StopIcon } from "../components/common/Icons";
+import { toKana } from "wanakana";
 
 interface Props {
   settings: AppSettings;
@@ -17,6 +18,8 @@ export default function InterpretPage({ settings }: Props) {
   const { cards, analyze, analyzeKorean, removeCard } = useAnalysis(settings);
   const [text, setText] = useState("");
   const [toast, setToast] = useState<string | null>(null);
+  /** 로마자→가나 실시간 변환 입력 모드 (일본어 키보드 없이 타이핑) */
+  const [romajiInput, setRomajiInput] = useState(false);
 
   const showToast = useCallback((message: string) => {
     setToast(message);
@@ -92,9 +95,15 @@ export default function InterpretPage({ settings }: Props) {
 
       <div className="transcript-bar">
         <textarea
-          placeholder="일본어 또는 한국어 문장 입력 — 한국어를 쓰면 일본어로 번역해 분석해요"
+          placeholder={
+            romajiInput
+              ? "로마자로 치면 가나로 바뀌어요 (예: ryokou → りょこう)"
+              : "일본어 또는 한국어 문장 입력 — 한국어를 쓰면 일본어로 번역해 분석해요"
+          }
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) =>
+            setText(romajiInput ? toKana(e.target.value, { IMEMode: true }) : e.target.value)
+          }
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
@@ -106,13 +115,22 @@ export default function InterpretPage({ settings }: Props) {
           분석
         </button>
       </div>
-      <p className="muted" style={{ marginTop: 0 }}>
+      <p className="muted" style={{ marginTop: 0, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <button
           className="btn btn-sm"
           onClick={() => analyzeText(MOCK_EXAMPLE_SENTENCE)}
         >
           ✨ 예시 문장 분석해 보기
         </button>
+        <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+          <input
+            type="checkbox"
+            checked={romajiInput}
+            onChange={(e) => setRomajiInput(e.target.checked)}
+            style={{ width: 16, height: 16, accentColor: "var(--color-primary)" }}
+          />
+          あ 로마자로 일본어 입력
+        </label>
       </p>
 
       {cards.length === 0 && (
