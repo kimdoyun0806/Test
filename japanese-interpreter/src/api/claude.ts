@@ -1,18 +1,13 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
-import {
-  WireAnalysisSchema,
-  fromWire,
-  ESCALATION_MODEL,
-  type Analysis,
-} from "../types/analysis";
+import { WireAnalysisSchema, fromWire, type Analysis } from "../types/analysis";
 import { validateAnalysis } from "./validate";
 
 export const ANALYSIS_SYSTEM_PROMPT = `너는 한국인 일본어 학습자를 위한 문장 분석기다. 입력된 일본어 문장을 분석해 JSON으로만 응답한다.
 
 출력 필드:
-- tr: 자연스러운 한국어 번역 전체
+- tr: 자연스러운 한국어 번역 전체 (절대 비우지 않는다)
 - t: 토큰 배열 — s=표기, k=히라가나 읽기, g=소속 세그먼트 번호(0부터), m=한국어 뜻, v=JLPT 레벨 또는 null
 - seg: 의미 세그먼트 배열 — j=일본어 부분, ko=대응하는 한국어 번역 조각
 - gr: 문법 포인트 배열 — p=문형, ex=문장 내 해당 부분, d=한국어 설명
@@ -34,12 +29,27 @@ const KO_TO_JA_PROMPT = `너는 한국어 문장을 자연스러운 일본어로
 
 const KoToJaSchema = z.object({ ja: z.string() });
 
+/** effort 파라미터를 지원하지 않는 모델 (Haiku 4.5 등 — 보내면 400) */
+function supportsEffort(model: string): boolean {
+  return !model.startsWith("claude-haiku");
+}
+
+/** 지연 상한: 호출당 타임아웃 45초·재시도 1회 (네트워크 지연이 몇 분을 잡아먹지 않도록) */
+function makeClient(apiKey: string): Anthropic {
+  return new Anthropic({
+    apiKey,
+    dangerouslyAllowBrowser: true,
+    timeout: 45_000,
+    maxRetries: 1,
+  });
+}
+
 /** 한국어 문장 → 자연스러운 일본어 번역 (이후 일반 분석 파이프라인에 넣는다) */
 export async function translateKoToJa(korean: string, opts: AnalyzeOptions): Promise<string> {
-  const client = new Anthropic({ apiKey: opts.apiKey, dangerouslyAllowBrowser: true });
+  const client = makeClient(opts.apiKey);
   const res = await client.messages.parse({
     model: opts.model,
-    max_tokens: 1000,
+    max_tokens: 2000,
     system: [
       { type: "text", text: KO_TO_JA_PROMPT, cache_control: { type: "ephemeral" } },
     ],
@@ -52,11 +62,6 @@ export async function translateKoToJa(korean: string, opts: AnalyzeOptions): Pro
   const ja = res.parsed_output?.ja?.trim();
   if (!ja) throw new Error("일본어 번역에 실패했습니다.");
   return ja;
-}
-
-/** effort 파라미터를 지원하지 않는 모델 (Haiku 4.5 등 — 보내면 400) */
-function supportsEffort(model: string): boolean {
-  return !model.startsWith("claude-haiku");
 }
 
 async function callOnce(
@@ -85,26 +90,26 @@ async function callOnce(
   return fromWire(res.parsed_output, sentence);
 }
 
+/** 이 길이를 넘는 문장은 재시도를 생략하고 즉시 표시한다 (지연 상한 확보) */
+const RETRY_TOKEN_LIMIT = 40;
+
 /**
- * 문장 하나를 분석한다. 후검증 실패 시 1회 재시도하되,
- * 기본 모델이 저비용(Haiku 등)이면 고품질 모델(Opus)로 자동 승격해 재시도한다
- * — 평소엔 저렴하게, 어려운 문장에서만 고품질 모델 비용이 발생.
+ * 문장 하나를 분석한다. 실패 시 같은 모델로 1회만 재시도한다 —
+ * 느린 상위 모델 자동 승격은 하지 않아 최악의 지연을 (타임아웃 포함) 약 1분대로 제한한다.
  * 재시도도 실패하면 마지막 결과를 그대로 반환한다 (UI가 색상 없이 우아한 저하 처리).
  */
 export async function analyzeSentence(sentence: string, opts: AnalyzeOptions): Promise<Analysis> {
-  const client = new Anthropic({ apiKey: opts.apiKey, dangerouslyAllowBrowser: true });
+  const client = makeClient(opts.apiKey);
   const messages: Anthropic.MessageParam[] = [{ role: "user", content: sentence }];
-
-  const retryModel = opts.model === ESCALATION_MODEL ? opts.model : ESCALATION_MODEL;
 
   let analysis: Analysis;
   try {
     analysis = await callOnce(client, opts.model, sentence, messages);
   } catch (error) {
-    // 출력 형식 자체가 깨진 경우(스키마 파싱 실패 등) → 상위 모델로 1회 재시도
+    // 출력 형식 자체가 깨진 경우(스키마 파싱 실패 등) → 같은 모델로 1회 재시도
     if (error instanceof Anthropic.APIError) throw error;
     try {
-      return await callOnce(client, retryModel, sentence, messages);
+      return await callOnce(client, opts.model, sentence, messages);
     } catch (retryError) {
       if (retryError instanceof Anthropic.APIError) throw retryError;
       throw new Error("분석 결과 형식이 올바르지 않습니다. 문장을 짧게 나눠 다시 시도해 주세요.");
@@ -113,8 +118,8 @@ export async function analyzeSentence(sentence: string, opts: AnalyzeOptions): P
 
   const result = validateAnalysis(analysis, sentence);
   if (result.ok) return analysis;
-  // 색상 매핑만 깨진 경우: 재시도(추가 비용·대기) 없이 즉시 색상 없는 표시로 넘긴다
-  if (result.segmentOnlyFailure) return analysis;
+  // 색상 매핑만 깨졌거나 문장이 아주 길면: 재시도(추가 대기) 없이 즉시 표시
+  if (result.segmentOnlyFailure || analysis.tokens.length > RETRY_TOKEN_LIMIT) return analysis;
 
   const retryMessages: Anthropic.MessageParam[] = [
     ...messages,
@@ -124,7 +129,7 @@ export async function analyzeSentence(sentence: string, opts: AnalyzeOptions): P
     },
   ];
   try {
-    const retried = await callOnce(client, retryModel, sentence, retryMessages);
+    const retried = await callOnce(client, opts.model, sentence, retryMessages);
     return retried;
   } catch {
     return analysis;
@@ -136,7 +141,7 @@ export async function recognizeHandwritingImage(
   imageDataUrl: string,
   opts: AnalyzeOptions,
 ): Promise<string> {
-  const client = new Anthropic({ apiKey: opts.apiKey, dangerouslyAllowBrowser: true });
+  const client = makeClient(opts.apiKey);
   const base64 = imageDataUrl.split(",")[1] ?? "";
   const res = await client.messages.create({
     model: opts.model,
@@ -171,7 +176,7 @@ export function describeApiError(error: unknown): string {
     return "요청이 너무 잦습니다. 잠시 후 다시 시도해 주세요.";
   }
   if (error instanceof Anthropic.APIConnectionError) {
-    return "네트워크 연결에 실패했습니다. 인터넷 상태를 확인해 주세요.";
+    return "네트워크 연결에 실패했거나 응답이 너무 늦습니다. 잠시 후 다시 시도해 주세요.";
   }
   if (error instanceof Anthropic.APIError) {
     return `API 오류 (${error.status}): ${error.message}`;

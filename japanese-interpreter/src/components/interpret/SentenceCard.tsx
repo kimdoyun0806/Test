@@ -29,6 +29,12 @@ function LoadingCard({ sentence, translating }: { sentence: string; translating:
       <p className="muted" style={{ margin: "4px 0 0", fontSize: 12 }}>
         문장 길이에 따라 보통 3~15초 걸립니다. 같은 문장은 다음부터 즉시 표시돼요.
       </p>
+      {elapsed > 20 && (
+        <p className="muted" style={{ margin: "4px 0 0", fontSize: 12 }}>
+          ⏳ 오래 걸리네요 — 설정에서 모델이 Haiku 4.5인지 확인해 보세요. 긴 문장은 。로
+          나눠 입력하면 빨라집니다.
+        </p>
+      )}
     </div>
   );
 }
@@ -61,6 +67,15 @@ export default function SentenceCard({
 
   const { analysis } = card;
   const colorEnabled = !card.degraded;
+  // 번역이 비어 오면 한→일 경로의 원문(한국어)으로 대체 표시
+  const displayAnalysis =
+    analysis.translation_ko.trim().length > 0
+      ? analysis
+      : {
+          ...analysis,
+          translation_ko:
+            card.sourceKo ?? "(번역을 생성하지 못했습니다 — 문장을 나눠 다시 시도해 보세요)",
+        };
 
   const handleSaveWord = async (token: AnalysisToken) => {
     const added = await saveWord(token, analysis.sentence_jp, analysis.translation_ko);
@@ -91,7 +106,7 @@ export default function SentenceCard({
       )}
 
       <AnalyzedSentenceView
-        analysis={analysis}
+        analysis={displayAnalysis}
         colorEnabled={colorEnabled}
         showRomaji={showRomaji}
         showHangul={showHangul}

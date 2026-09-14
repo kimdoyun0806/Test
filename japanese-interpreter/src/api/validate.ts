@@ -23,6 +23,10 @@ export function validateAnalysis(analysis: Analysis, original: string): Validati
   const errors: string[] = [];
   const src = normalizeForCompare(original);
 
+  if (analysis.translation_ko.trim().length === 0) {
+    errors.push("tr(한국어 번역)이 비어 있다. 반드시 전체 번역을 넣어라.");
+  }
+
   const tokenJoin = normalizeForCompare(analysis.tokens.map((t) => t.surface).join(""));
   const tokensOk = tokenJoin === src;
   if (!tokensOk) {
@@ -51,10 +55,11 @@ export function validateAnalysis(analysis: Analysis, original: string): Validati
     prev = t.segment_index;
   }
 
+  const translationOk = analysis.translation_ko.trim().length > 0;
   return {
     ok: errors.length === 0,
     errors,
-    // 토큰은 정상이고 세그먼트 정합만 깨진 경우 → 색상 없이 표시 가능
-    segmentOnlyFailure: tokensOk && !segmentsOk,
+    // 토큰·번역은 정상이고 세그먼트 정합만 깨진 경우 → 색상 없이 표시 가능
+    segmentOnlyFailure: tokensOk && translationOk && !segmentsOk,
   };
 }

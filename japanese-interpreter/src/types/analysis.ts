@@ -57,26 +57,36 @@ export type GrammarPoint = Analysis["grammar_points"][number];
 
 const LEVELS = ["N5", "N4", "N3", "N2", "N1"] as const;
 
+/** 구두점·공백만으로 이루어진 표기인지 */
+const PUNCT_ONLY_RE = /^[\s、。！？!?.,・「」『』（）()〜~…ー]+$/;
+
 /** wire → 내부 형태 변환. 로마자·한글 발음은 가나 읽기에서 규칙 생성한다 */
 export function fromWire(wire: WireAnalysis, sentence: string): Analysis {
+  const tokens: Analysis["tokens"] = [];
+  for (const t of wire.t) {
+    // 구두점만 있는 토큰은 앞 토큰에 병합 (외톨이 、/。 카드 방지)
+    if (PUNCT_ONLY_RE.test(t.s) && tokens.length > 0) {
+      tokens[tokens.length - 1].surface += t.s;
+      continue;
+    }
+    const { romaji, hangul } = transliterateKana(t.k);
+    const level = LEVELS.includes(t.v as (typeof LEVELS)[number])
+      ? (t.v as (typeof LEVELS)[number])
+      : null;
+    tokens.push({
+      surface: t.s,
+      reading_kana: t.k,
+      romaji,
+      hangul,
+      segment_index: t.g,
+      meaning_ko: t.m || null,
+      level,
+    });
+  }
   return {
     sentence_jp: sentence.normalize("NFKC").trim(),
-    translation_ko: wire.tr,
-    tokens: wire.t.map((t) => {
-      const { romaji, hangul } = transliterateKana(t.k);
-      const level = LEVELS.includes(t.v as (typeof LEVELS)[number])
-        ? (t.v as (typeof LEVELS)[number])
-        : null;
-      return {
-        surface: t.s,
-        reading_kana: t.k,
-        romaji,
-        hangul,
-        segment_index: t.g,
-        meaning_ko: t.m || null,
-        level,
-      };
-    }),
+    translation_ko: wire.tr.trim(),
+    tokens,
     segments: wire.seg.map((s) => ({ jp_text: s.j, ko_text: s.ko })),
     grammar_points: wire.gr.map((g) => ({
       pattern: g.p,
@@ -98,6 +108,3 @@ export const MODEL_OPTIONS = [
 ] as const;
 
 export const DEFAULT_MODEL = "claude-haiku-4-5";
-
-/** 검증 실패 시 자동 승격에 사용하는 고품질 모델 */
-export const ESCALATION_MODEL = "claude-opus-5";
