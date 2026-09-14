@@ -25,6 +25,10 @@ npm run dev        # http://localhost:5173
 ```
 
 - **API 키 없이 체험**: 설정 탭 → "목(체험) 모드" 켜기 → 통역 탭의 "✨ 예시 문장 분석해 보기"
+- **로컬 개발 시 키 자동 주입**: `japanese-interpreter/.env.local` 파일에
+  `VITE_ANTHROPIC_API_KEY=sk-ant-...` 을 넣으면 설정 입력 없이 사용됩니다 (gitignore됨).
+  ⚠️ **배포 빌드에는 절대 키를 넣지 마세요** — 정적 사이트는 번들 JS가 공개되므로
+  빌드에 포함된 키는 누구나 꺼내 쓸 수 있습니다. GitHub Actions 시크릿으로도 넣지 마세요.
 - **실제 사용**: [Anthropic 콘솔](https://console.anthropic.com)에서 API 키 발급 → 설정 탭에 입력
   - 키는 이 브라우저의 localStorage에만 저장됩니다 (서버 전송 없음)
   - API는 선불 크레딧 방식($5부터)이라 충전한 만큼만 사용됩니다

@@ -3,6 +3,7 @@ import type { AppSettings } from "../services/storage/settings";
 import { MODEL_OPTIONS } from "../types/analysis";
 import { clearAnalysisCache, countAnalysisCache } from "../services/storage/analysisCache";
 import { exportVocab, importVocab, type ExportData } from "../services/storage/vocabStore";
+import { ENV_API_KEY } from "../services/storage/settings";
 import { isRecognitionSupported } from "../services/speech/recognition";
 import { hasJapaneseVoice, isTtsSupported } from "../services/speech/tts";
 
@@ -51,7 +52,9 @@ export default function SettingsPage({ settings, onChange }: Props) {
           <label>Anthropic API 키</label>
           <p className="muted" style={{ marginTop: 0 }}>
             {settings.apiKey
-              ? `저장된 키: sk-ant-••••${settings.apiKey.slice(-4)} ✅`
+              ? settings.apiKey === ENV_API_KEY
+                ? "로컬 환경변수(.env.local) 키 사용 중 ✅"
+                : `저장된 키: sk-ant-••••${settings.apiKey.slice(-4)} ✅`
               : "저장된 키가 없습니다."}
           </p>
           <div style={{ display: "flex", gap: 8 }}>
