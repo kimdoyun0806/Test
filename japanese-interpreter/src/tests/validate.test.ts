@@ -21,23 +21,24 @@ describe("validateAnalysis", () => {
     expect(result.errors.some((e) => e.includes("토큰"))).toBe(true);
   });
 
-  it("세그먼트 연결이 원문과 다르면 실패한다", () => {
-    const broken = structuredClone(RYOKOU);
-    broken.segments[1] = { ...broken.segments[1], jp_text: "国内派です" };
+  it("번역이 비어 있으면 실패한다", () => {
+    const broken = { ...RYOKOU, translation_ko: "  " };
     const result = validateAnalysis(broken, ORIGINAL);
     expect(result.ok).toBe(false);
+    expect(result.errors.some((e) => e.includes("tr"))).toBe(true);
   });
 
-  it("세그먼트만 깨진 경우 segmentOnlyFailure로 표시된다", () => {
+  it("segment_index가 역행하면 실패하되 segmentOnlyFailure로 표시된다", () => {
     const broken = structuredClone(RYOKOU);
-    broken.segments[1] = { ...broken.segments[1], jp_text: "国内派です" };
+    broken.tokens[7] = { ...broken.tokens[7], segment_index: 0 };
     const result = validateAnalysis(broken, ORIGINAL);
+    expect(result.ok).toBe(false);
     expect(result.segmentOnlyFailure).toBe(true);
   });
 
-  it("segment_index가 역행하면 실패한다", () => {
+  it("segment_index가 범위를 벗어나면 실패한다", () => {
     const broken = structuredClone(RYOKOU);
-    broken.tokens[7] = { ...broken.tokens[7], segment_index: 0 };
+    broken.tokens[7] = { ...broken.tokens[7], segment_index: 99 };
     const result = validateAnalysis(broken, ORIGINAL);
     expect(result.ok).toBe(false);
   });

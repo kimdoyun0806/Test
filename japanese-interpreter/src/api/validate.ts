@@ -15,15 +15,17 @@ export interface ValidationResult {
 
 /**
  * 분석 결과가 원문과 정합하는지 기계 검증한다.
+ * - 번역(tr) 비어 있지 않음
  * - 토큰 표기(s) 연결 == 원문
- * - 세그먼트 일본어(j) 연결 == 원문
  * - 토큰의 세그먼트 번호(g) 단조 비감소·범위 내
+ * (일본어 세그먼트 문자열은 토큰에서 조립하므로 별도 검증 불필요)
  */
 export function validateAnalysis(analysis: Analysis, original: string): ValidationResult {
   const errors: string[] = [];
   const src = normalizeForCompare(original);
 
-  if (analysis.translation_ko.trim().length === 0) {
+  const translationOk = analysis.translation_ko.trim().length > 0;
+  if (!translationOk) {
     errors.push("tr(한국어 번역)이 비어 있다. 반드시 전체 번역을 넣어라.");
   }
 
@@ -35,14 +37,7 @@ export function validateAnalysis(analysis: Analysis, original: string): Validati
     );
   }
 
-  const segJoin = normalizeForCompare(analysis.segments.map((s) => s.jp_text).join(""));
-  let segmentsOk = segJoin === src;
-  if (!segmentsOk) {
-    errors.push(
-      `세그먼트 일본어(j)를 순서대로 이어 붙인 결과("${segJoin}")가 원문("${src}")과 일치하지 않는다.`,
-    );
-  }
-
+  let segmentsOk = true;
   let prev = 0;
   for (const [i, t] of analysis.tokens.entries()) {
     if (t.segment_index < prev || t.segment_index >= analysis.segments.length) {
@@ -55,11 +50,10 @@ export function validateAnalysis(analysis: Analysis, original: string): Validati
     prev = t.segment_index;
   }
 
-  const translationOk = analysis.translation_ko.trim().length > 0;
   return {
     ok: errors.length === 0,
     errors,
-    // 토큰·번역은 정상이고 세그먼트 정합만 깨진 경우 → 색상 없이 표시 가능
+    // 토큰·번역은 정상이고 세그먼트 번호만 깨진 경우 → 색상 없이 표시 가능
     segmentOnlyFailure: tokensOk && translationOk && !segmentsOk,
   };
 }

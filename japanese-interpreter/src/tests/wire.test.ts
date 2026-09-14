@@ -7,7 +7,7 @@ const WIRE = {
     { s: "旅行", k: "りょこう", g: 0, m: "여행", v: "N5" as const },
     { s: "に", k: "に", g: 0, m: "~에 (조사)", v: null },
   ],
-  seg: [{ j: "旅行に", ko: "여행을" }],
+  seg: [{ ko: "여행을" }],
   gr: [{ p: "〜なら", ex: "行くなら", d: "가정을 나타냅니다." }],
 };
 
@@ -39,6 +39,7 @@ describe("fromWire", () => {
     expect(analysis.tokens[1].romaji).toBe("ni");
     expect(analysis.tokens[1].hangul).toBe("니");
     expect(analysis.tokens[1].meaning_ko).toBe("~에 (조사)");
+    // 일본어 구간은 토큰 소속 번호(g)로 조립되어 원문과 항상 일치
     expect(analysis.segments[0]).toEqual({ jp_text: "旅行に", ko_text: "여행을" });
     expect(analysis.grammar_points[0]).toEqual({
       pattern: "〜なら",

@@ -18,7 +18,8 @@ export const WireAnalysisSchema = z.object({
       v: z.string().nullable(),
     }),
   ),
-  seg: z.array(z.object({ j: z.string(), ko: z.string() })),
+  // j(일본어 구간)는 받지 않는다 — 토큰의 g로 클라이언트가 조립 (정합성 100%)
+  seg: z.array(z.object({ ko: z.string() })),
   gr: z.array(z.object({ p: z.string(), ex: z.string(), d: z.string() })),
 });
 export type WireAnalysis = z.infer<typeof WireAnalysisSchema>;
@@ -83,11 +84,19 @@ export function fromWire(wire: WireAnalysis, sentence: string): Analysis {
       level,
     });
   }
+  // 일본어 구간은 토큰의 소속 번호(g)로 조립 — 원문과 항상 정확히 일치
+  const segments = wire.seg.map((s, i) => ({
+    jp_text: tokens
+      .filter((t) => t.segment_index === i)
+      .map((t) => t.surface)
+      .join(""),
+    ko_text: s.ko,
+  }));
   return {
     sentence_jp: sentence.normalize("NFKC").trim(),
     translation_ko: wire.tr.trim(),
     tokens,
-    segments: wire.seg.map((s) => ({ jp_text: s.j, ko_text: s.ko })),
+    segments,
     grammar_points: wire.gr.map((g) => ({
       pattern: g.p,
       jp_example: g.ex,
@@ -97,7 +106,7 @@ export function fromWire(wire: WireAnalysis, sentence: string): Analysis {
 }
 
 /** 분석 결과 형태가 바뀌면 올려서 구버전 캐시를 무효화한다 */
-export const ANALYSIS_SCHEMA_VERSION = 3;
+export const ANALYSIS_SCHEMA_VERSION = 4;
 
 export const SEGMENT_COLOR_COUNT = 6;
 
