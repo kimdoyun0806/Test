@@ -9,9 +9,9 @@ export interface SpeechState {
 }
 
 /**
- * 마이크 토글 훅. 최종 인식 결과는 onFinal 콜백으로 전달된다.
+ * 마이크 토글 훅. 최종 인식 결과는 onFinal 콜백으로 전달된다 (confidence: 0~1 확신도).
  */
-export function useSpeechRecognition(onFinal: (text: string) => void) {
+export function useSpeechRecognition(onFinal: (text: string, confidence: number) => void) {
   const [state, setState] = useState<SpeechState>({
     supported: isRecognitionSupported(),
     listening: false,
@@ -33,9 +33,9 @@ export function useSpeechRecognition(onFinal: (text: string) => void) {
     setState((s) => ({ ...s, error: null }));
     const recognizer = createRecognizer({
       onInterim: (text) => setState((s) => ({ ...s, interim: text })),
-      onFinal: (text) => {
+      onFinal: (text, confidence) => {
         setState((s) => ({ ...s, interim: "" }));
-        onFinalRef.current(text);
+        onFinalRef.current(text, confidence);
       },
       onError: (message) => setState((s) => ({ ...s, error: message })),
       onEnd: () => {

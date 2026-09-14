@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import type { AppSettings } from "../services/storage/settings";
 import { useAnalysis } from "../hooks/useAnalysis";
 import { useSpeechRecognition } from "../hooks/useSpeechRecognition";
-import { splitSentences } from "../services/sentenceSplit";
+import { containsJapanese, splitSentences } from "../services/sentenceSplit";
 import { MOCK_EXAMPLE_SENTENCE } from "../api/mockClient";
 import SentenceCard from "../components/interpret/SentenceCard";
 
@@ -27,10 +27,25 @@ export default function InterpretPage({ settings }: Props) {
     [analyze],
   );
 
-  const speech = useSpeechRecognition((finalText) => analyzeText(finalText));
+  // 마이크 결과 필터: 일본어가 아니거나 확신도가 낮으면 분석하지 않는다 (API 낭비 방지)
+  const speech = useSpeechRecognition((finalText, confidence) => {
+    if (!containsJapanese(finalText)) {
+      showToast(`일본어로 인식되지 않아 건너뛰었어요: "${finalText.slice(0, 20)}"`);
+      return;
+    }
+    if (confidence < 0.5) {
+      showToast("인식이 불확실해 건너뛰었어요. 또박또박 다시 말해 주세요.");
+      return;
+    }
+    analyzeText(finalText);
+  });
 
   const handleSubmit = () => {
     if (!text.trim()) return;
+    if (!containsJapanese(text)) {
+      showToast("일본어 문자가 없는 입력이에요. 일본어 문장을 입력해 주세요.");
+      return;
+    }
     analyzeText(text);
     setText("");
   };

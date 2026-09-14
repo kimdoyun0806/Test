@@ -2,7 +2,8 @@
 
 export interface RecognitionCallbacks {
   onInterim: (text: string) => void;
-  onFinal: (text: string) => void;
+  /** confidence: 0~1 인식 확신도. 브라우저가 제공하지 않으면 1 */
+  onFinal: (text: string, confidence: number) => void;
   onError: (message: string) => void;
   onEnd: () => void;
 }
@@ -21,7 +22,7 @@ interface MinimalSpeechRecognition {
 
 interface MinimalRecognitionEvent {
   resultIndex: number;
-  results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } }>;
+  results: ArrayLike<{ isFinal: boolean; 0: { transcript: string; confidence?: number } }>;
 }
 
 type RecognitionCtor = new () => MinimalSpeechRecognition;
@@ -55,7 +56,7 @@ export function createRecognizer(callbacks: RecognitionCallbacks): {
     for (let i = event.resultIndex; i < event.results.length; i++) {
       const result = event.results[i];
       if (result.isFinal) {
-        callbacks.onFinal(result[0].transcript);
+        callbacks.onFinal(result[0].transcript, result[0].confidence ?? 1);
       } else {
         interim += result[0].transcript;
       }

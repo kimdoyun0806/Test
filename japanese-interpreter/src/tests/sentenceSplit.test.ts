@@ -1,5 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { splitSentences } from "../services/sentenceSplit";
+import { containsJapanese, splitSentences } from "../services/sentenceSplit";
+
+describe("containsJapanese", () => {
+  it("가나·한자가 있으면 true", () => {
+    expect(containsJapanese("こんにちは")).toBe(true);
+    expect(containsJapanese("カタカナ")).toBe(true);
+    expect(containsJapanese("旅行")).toBe(true);
+  });
+  it("한국어·영어·숫자만 있으면 false", () => {
+    expect(containsJapanese("안녕하세요")).toBe(false);
+    expect(containsJapanese("hello 123!")).toBe(false);
+    expect(containsJapanese("")).toBe(false);
+  });
+});
 
 describe("splitSentences", () => {
   it("。기준으로 분리한다", () => {
