@@ -62,6 +62,29 @@ export default {
       });
     }
 
+    // 남용 방지 가드: 허용 모델·토큰 상한 밖의 요청은 중계하지 않는다 (요청당 비용 상한)
+    let bodyText;
+    try {
+      bodyText = await request.text();
+      const body = JSON.parse(bodyText);
+      const model = String(body.model ?? "");
+      const okModel =
+        model.startsWith("claude-haiku") ||
+        model.startsWith("claude-sonnet") ||
+        model.startsWith("claude-opus");
+      if (!okModel || (body.max_tokens ?? 0) > 8192) {
+        return new Response(JSON.stringify({ error: "request not allowed" }), {
+          status: 400,
+          headers: { "content-type": "application/json", ...corsHeaders(request) },
+        });
+      }
+    } catch {
+      return new Response(JSON.stringify({ error: "invalid body" }), {
+        status: 400,
+        headers: { "content-type": "application/json", ...corsHeaders(request) },
+      });
+    }
+
     const upstreamHeaders = {
       "content-type": "application/json",
       "x-api-key": env.ANTHROPIC_API_KEY,
@@ -73,7 +96,7 @@ export default {
     const upstream = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: upstreamHeaders,
-      body: request.body,
+      body: bodyText,
     });
 
     const headers = new Headers(corsHeaders(request));

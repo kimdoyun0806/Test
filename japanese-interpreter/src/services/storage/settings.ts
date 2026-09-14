@@ -17,9 +17,19 @@ export interface AppSettings {
   settingsVersion: number;
 }
 
-/** 실제 분석을 호출할 자격(키 또는 프록시)이 있는지 */
+/**
+ * 빌드에 내장된 공용 프록시 (공용 사이트용 — 방문자는 아무 설정 없이 사용).
+ * GitHub 저장소 Settings → Actions Variables의 ZENJI_PROXY_URL / ZENJI_PROXY_PASSWORD가
+ * 배포 워크플로에서 VITE_PROXY_URL / VITE_PROXY_PASSWORD로 주입된다.
+ */
+export const ENV_PROXY_URL: string =
+  (import.meta.env.VITE_PROXY_URL as string | undefined) ?? "";
+export const ENV_PROXY_PASSWORD: string =
+  (import.meta.env.VITE_PROXY_PASSWORD as string | undefined) ?? "";
+
+/** 실제 분석을 호출할 자격(키·프록시·내장 프록시)이 있는지 */
 export function hasCredentials(settings: AppSettings): boolean {
-  return Boolean(settings.apiKey || settings.proxyUrl);
+  return Boolean(settings.apiKey || settings.proxyUrl || ENV_PROXY_URL);
 }
 
 const KEY = "jp-tutor-settings";

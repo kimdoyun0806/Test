@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
 import { WireAnalysisSchema, fromWire, type Analysis } from "../types/analysis";
+import { ENV_PROXY_PASSWORD, ENV_PROXY_URL } from "../services/storage/settings";
 import { validateAnalysis } from "./validate";
 
 export const ANALYSIS_SYSTEM_PROMPT = `너는 한국인 일본어 학습자를 위한 문장 분석기다. 입력된 일본어 문장을 분석해 JSON으로만 응답한다.
@@ -28,18 +29,32 @@ export interface AnalyzeOptions {
   proxyPassword?: string;
 }
 
-/** 설정에서 API 호출 옵션 생성 */
+/**
+ * 설정에서 API 호출 옵션 생성.
+ * 우선순위: 사용자가 넣은 프록시 > 사용자가 넣은 API 키 > 빌드 내장 공용 프록시
+ */
 export function apiOptsFrom(settings: {
   apiKey: string;
   model: string;
   proxyUrl: string;
   proxyPassword: string;
 }): AnalyzeOptions {
+  if (settings.proxyUrl) {
+    return {
+      apiKey: settings.apiKey,
+      model: settings.model,
+      proxyUrl: settings.proxyUrl,
+      proxyPassword: settings.proxyPassword || undefined,
+    };
+  }
+  if (settings.apiKey) {
+    return { apiKey: settings.apiKey, model: settings.model };
+  }
   return {
-    apiKey: settings.apiKey,
+    apiKey: "",
     model: settings.model,
-    proxyUrl: settings.proxyUrl || undefined,
-    proxyPassword: settings.proxyPassword || undefined,
+    proxyUrl: ENV_PROXY_URL || undefined,
+    proxyPassword: ENV_PROXY_PASSWORD || undefined,
   };
 }
 

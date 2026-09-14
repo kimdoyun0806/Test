@@ -3,7 +3,7 @@ import type { AppSettings } from "../services/storage/settings";
 import { MODEL_OPTIONS } from "../types/analysis";
 import { clearAnalysisCache, countAnalysisCache } from "../services/storage/analysisCache";
 import { exportVocab, importVocab, type ExportData } from "../services/storage/vocabStore";
-import { ENV_API_KEY } from "../services/storage/settings";
+import { ENV_API_KEY, ENV_PROXY_URL } from "../services/storage/settings";
 import { isRecognitionSupported } from "../services/speech/recognition";
 import { hasJapaneseVoice, isTtsSupported } from "../services/speech/tts";
 
@@ -118,6 +118,18 @@ export default function SettingsPage({ settings, onChange }: Props) {
           />
         </div>
       </div>
+
+      {ENV_PROXY_URL && (
+        <div className="card">
+          <p style={{ margin: 0 }}>
+            ✅ <strong>이 사이트는 내장 프록시로 동작합니다.</strong>
+          </p>
+          <p className="muted" style={{ marginBottom: 0 }}>
+            방문자는 API 키나 프록시를 입력할 필요 없이 바로 사용할 수 있어요. 아래에 개인
+            키나 프록시를 입력하면 그쪽이 우선 사용됩니다.
+          </p>
+        </div>
+      )}
 
       <div className="card">
         <h3 style={{ marginTop: 0 }}>프록시 모드 (Cloudflare Worker)</h3>

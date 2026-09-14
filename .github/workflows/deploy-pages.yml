@@ -37,6 +37,12 @@ jobs:
         run: npm test
       - name: Build
         working-directory: japanese-interpreter
+        # 공용 프록시 내장: 저장소 Settings → Actions Variables에
+        # ZENJI_PROXY_URL / ZENJI_PROXY_PASSWORD 를 설정하면 방문자는 설정 없이 사용 가능.
+        # (Anthropic API 키는 절대 여기 넣지 말 것 — 프록시 주소·공용 비밀번호만)
+        env:
+          VITE_PROXY_URL: ${{ vars.ZENJI_PROXY_URL }}
+          VITE_PROXY_PASSWORD: ${{ vars.ZENJI_PROXY_PASSWORD }}
         run: npm run build
       - name: Deploy to gh-pages branch
         uses: peaceiris/actions-gh-pages@v4

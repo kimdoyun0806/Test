@@ -39,6 +39,24 @@ curl -s https://zenji-proxy.<계정>.workers.dev/v1/messages \
 ```
 JSON 응답이 오면 성공. `401`이면 비밀번호, `403`이면 ALLOWED_ORIGINS 확인.
 
+## 공용 사이트로 쓰기 (방문자 설정 불필요)
+
+Worker 설치 후, GitHub 저장소에 변수 2개를 넣으면 배포 사이트에 프록시가 내장되어
+**모든 방문자가 아무 설정 없이 바로 사용**할 수 있습니다:
+
+1. GitHub 저장소 → **Settings** → **Secrets and variables** → **Actions** → **Variables** 탭
+2. **New repository variable** 로 2개 추가:
+   | Name | Value |
+   |---|---|
+   | `ZENJI_PROXY_URL` | `https://zenji-proxy.<계정>.workers.dev` |
+   | `ZENJI_PROXY_PASSWORD` | Worker의 ACCESS_PASSWORD와 같은 값 |
+3. **Actions** 탭 → "Deploy to GitHub Pages" → **Run workflow** (또는 아무 커밋 푸시)
+4. 배포 후 설정 탭에 "✅ 이 사이트는 내장 프록시로 동작합니다" 표시 확인
+
+⚠️ 이렇게 하면 사이트 방문자 전원이 내 크레딧으로 API를 씁니다.
+Worker에 모델·토큰 상한 가드가 있지만, **Anthropic 콘솔 지출 한도 설정은 필수**입니다.
+사이트 주소를 공개된 곳에 올리지 말고 스터디원에게만 공유하세요.
+
 ## 보안 메모
 
 - 접속 비밀번호를 아는 사람은 내 크레딧으로 API를 쓸 수 있습니다 — 비밀번호를 공유하지 마세요.
