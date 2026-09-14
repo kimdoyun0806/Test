@@ -12,16 +12,24 @@ interface Props {
 }
 
 const PAD_HEIGHT = 220;
+/** 획을 뗀 뒤 자동 인식까지의 대기 시간 (다음 획을 기다리는 시간) */
+const RECOGNIZE_DEBOUNCE_MS = 350;
 
-/** 터치펜·손가락으로 일본어를 써서 입력하는 손글씨 패드 */
+/**
+ * 터치펜·손가락 손글씨 입력 패드.
+ * 획을 뗄 때마다 자동으로 인식해 후보를 실시간 갱신하고, 후보를 탭하면 바로 입력된다.
+ */
 export default function HandwritingPad({ settings, onInsert, onClose, onToast }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const strokesRef = useRef<Stroke[]>([]);
   const currentRef = useRef<Stroke | null>(null);
   const startTimeRef = useRef(0);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const requestSeqRef = useRef(0);
   const [candidates, setCandidates] = useState<string[]>([]);
-  const [recognizing, setRecognizing] = useState(false);
   const [hasInk, setHasInk] = useState(false);
+  const [googleDown, setGoogleDown] = useState(false);
+  const [aiRecognizing, setAiRecognizing] = useState(false);
 
   // 캔버스 초기화 (devicePixelRatio 대응)
   useEffect(() => {
@@ -37,6 +45,9 @@ export default function HandwritingPad({ settings, onInsert, onClose, onToast }:
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
     ctx.strokeStyle = getComputedStyle(canvas).color;
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
   }, []);
 
   const redraw = () => {
@@ -51,6 +62,35 @@ export default function HandwritingPad({ settings, onInsert, onClose, onToast }:
     }
   };
 
+  /** 현재 획들로 자동 인식 실행 (오래된 응답은 무시) */
+  const runRecognition = async () => {
+    const canvas = canvasRef.current;
+    if (!canvas || strokesRef.current.length === 0) {
+      setCandidates([]);
+      return;
+    }
+    const seq = ++requestSeqRef.current;
+    try {
+      const results = await recognizeWithGoogle(
+        strokesRef.current,
+        canvas.clientWidth,
+        PAD_HEIGHT,
+      );
+      if (seq !== requestSeqRef.current) return; // 그 사이 획이 추가됨 — 무시
+      setGoogleDown(false);
+      setCandidates(results.slice(0, 6));
+    } catch {
+      if (seq !== requestSeqRef.current) return;
+      setGoogleDown(true);
+      setCandidates([]);
+    }
+  };
+
+  const scheduleRecognition = () => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => void runRecognition(), RECOGNIZE_DEBOUNCE_MS);
+  };
+
   const pointFromEvent = (e: React.PointerEvent) => {
     const rect = canvasRef.current!.getBoundingClientRect();
     return { x: e.clientX - rect.left, y: e.clientY - rect.top };
@@ -59,6 +99,7 @@ export default function HandwritingPad({ settings, onInsert, onClose, onToast }:
   const handleDown = (e: React.PointerEvent) => {
     e.preventDefault();
     canvasRef.current?.setPointerCapture(e.pointerId);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
     if (strokesRef.current.length === 0) startTimeRef.current = Date.now();
     const { x, y } = pointFromEvent(e);
     currentRef.current = { x: [x], y: [y], t: [Date.now() - startTimeRef.current] };
@@ -82,11 +123,14 @@ export default function HandwritingPad({ settings, onInsert, onClose, onToast }:
     if (currentRef.current && currentRef.current.x.length > 0) {
       strokesRef.current.push(currentRef.current);
       setHasInk(true);
+      scheduleRecognition(); // 획을 뗄 때마다 실시간 인식
     }
     currentRef.current = null;
   };
 
   const clearPad = () => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    requestSeqRef.current++;
     strokesRef.current = [];
     currentRef.current = null;
     setCandidates([]);
@@ -98,41 +142,7 @@ export default function HandwritingPad({ settings, onInsert, onClose, onToast }:
     strokesRef.current.pop();
     setHasInk(strokesRef.current.length > 0);
     redraw();
-  };
-
-  const recognize = async () => {
-    const canvas = canvasRef.current;
-    if (!canvas || strokesRef.current.length === 0) return;
-    setRecognizing(true);
-    setCandidates([]);
-    try {
-      const results = await recognizeWithGoogle(
-        strokesRef.current,
-        canvas.clientWidth,
-        PAD_HEIGHT,
-      );
-      if (results.length === 0) throw new Error("후보 없음");
-      setCandidates(results.slice(0, 6));
-    } catch {
-      // 구글 인식 실패 → Claude Vision 폴백 (API 키 필요)
-      if (settings.apiKey && !settings.mockMode) {
-        try {
-          const text = await recognizeHandwritingImage(canvas.toDataURL("image/png"), {
-            apiKey: settings.apiKey,
-            model: settings.model,
-          });
-          onInsert(text);
-          clearPad();
-          onToast(`"${text}" 입력됨 (AI 인식)`);
-        } catch {
-          onToast("손글씨 인식에 실패했습니다. 다시 또박또박 써 주세요.");
-        }
-      } else {
-        onToast("인식 서버에 연결하지 못했습니다. 네트워크를 확인해 주세요.");
-      }
-    } finally {
-      setRecognizing(false);
-    }
+    scheduleRecognition();
   };
 
   const pickCandidate = (c: string) => {
@@ -140,12 +150,32 @@ export default function HandwritingPad({ settings, onInsert, onClose, onToast }:
     clearPad();
   };
 
+  /** 구글 인식 불가 시 폴백: Claude Vision으로 이미지 인식 */
+  const recognizeWithAi = async () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    setAiRecognizing(true);
+    try {
+      const text = await recognizeHandwritingImage(canvas.toDataURL("image/png"), {
+        apiKey: settings.apiKey,
+        model: settings.model,
+      });
+      onInsert(text);
+      clearPad();
+      onToast(`"${text}" 입력됨 (AI 인식)`);
+    } catch {
+      onToast("손글씨 인식에 실패했습니다. 다시 또박또박 써 주세요.");
+    } finally {
+      setAiRecognizing(false);
+    }
+  };
+
   return (
     <div className="card" style={{ padding: 14 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
         <strong style={{ fontSize: 14 }}>✍️ 손글씨 입력</strong>
         <span className="muted" style={{ fontSize: 12 }}>
-          한두 글자씩 쓰고 인식을 누르세요
+          쓰면 후보가 자동으로 나와요 — 탭하면 입력
         </span>
       </div>
 
@@ -166,29 +196,33 @@ export default function HandwritingPad({ settings, onInsert, onClose, onToast }:
         onPointerCancel={handleUp}
       />
 
-      {candidates.length > 0 && (
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
-          {candidates.map((c) => (
-            <button
-              key={c}
-              className="btn btn-sm"
-              style={{ fontSize: 18, fontFamily: "var(--font-jp)" }}
-              onClick={() => pickCandidate(c)}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
-      )}
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10, minHeight: 38 }}>
+        {candidates.map((c) => (
+          <button
+            key={c}
+            className="btn btn-sm"
+            style={{ fontSize: 18, fontFamily: "var(--font-jp)" }}
+            onClick={() => pickCandidate(c)}
+          >
+            {c}
+          </button>
+        ))}
+        {candidates.length === 0 && hasInk && !googleDown && (
+          <span className="muted" style={{ alignSelf: "center" }}>인식 중…</span>
+        )}
+        {googleDown && hasInk && (
+          <span className="muted" style={{ alignSelf: "center" }}>
+            인식 서버에 연결하지 못했습니다.
+          </span>
+        )}
+      </div>
 
       <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-        <button
-          className="btn btn-sm btn-primary"
-          disabled={!hasInk || recognizing}
-          onClick={recognize}
-        >
-          {recognizing ? "인식 중…" : "🔍 인식"}
-        </button>
+        {googleDown && hasInk && settings.apiKey && !settings.mockMode && (
+          <button className="btn btn-sm btn-primary" disabled={aiRecognizing} onClick={recognizeWithAi}>
+            {aiRecognizing ? "인식 중…" : "🤖 AI로 인식"}
+          </button>
+        )}
         <button className="btn btn-sm" disabled={!hasInk} onClick={undoStroke}>
           ↩ 획 취소
         </button>
