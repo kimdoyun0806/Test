@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { recognizeWithGoogle, type Stroke } from "../../services/handwriting";
-import { recognizeHandwritingImage } from "../../api/claude";
-import type { AppSettings } from "../../services/storage/settings";
+import { apiOptsFrom, recognizeHandwritingImage } from "../../api/claude";
+import { hasCredentials, type AppSettings } from "../../services/storage/settings";
 
 interface Props {
   settings: AppSettings;
@@ -156,10 +156,10 @@ export default function HandwritingPad({ settings, onInsert, onClose, onToast }:
     if (!canvas) return;
     setAiRecognizing(true);
     try {
-      const text = await recognizeHandwritingImage(canvas.toDataURL("image/png"), {
-        apiKey: settings.apiKey,
-        model: settings.model,
-      });
+      const text = await recognizeHandwritingImage(
+        canvas.toDataURL("image/png"),
+        apiOptsFrom(settings),
+      );
       onInsert(text);
       clearPad();
       onToast(`"${text}" 입력됨 (AI 인식)`);
@@ -218,7 +218,7 @@ export default function HandwritingPad({ settings, onInsert, onClose, onToast }:
       </div>
 
       <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-        {googleDown && hasInk && settings.apiKey && !settings.mockMode && (
+        {googleDown && hasInk && hasCredentials(settings) && !settings.mockMode && (
           <button className="btn btn-sm btn-primary" disabled={aiRecognizing} onClick={recognizeWithAi}>
             {aiRecognizing ? "인식 중…" : "🤖 AI로 인식"}
           </button>

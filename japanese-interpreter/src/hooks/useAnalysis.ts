@@ -1,11 +1,11 @@
 import { useCallback, useState } from "react";
 import type { Analysis } from "../types/analysis";
-import { analyzeSentence, describeApiError, translateKoToJa } from "../api/claude";
+import { analyzeSentence, apiOptsFrom, describeApiError, translateKoToJa } from "../api/claude";
 import { analyzeMock } from "../api/mockClient";
 import { getCachedAnalysis, putCachedAnalysis } from "../services/storage/analysisCache";
 import { splitSentences } from "../services/sentenceSplit";
 import { validateAnalysis } from "../api/validate";
-import type { AppSettings } from "../services/storage/settings";
+import { hasCredentials, type AppSettings } from "../services/storage/settings";
 
 export interface SentenceCardData {
   id: string;
@@ -44,20 +44,18 @@ export function useAnalysis(settings: AppSettings) {
         }
 
         let analysis: Analysis;
-        if (settings.mockMode || !settings.apiKey) {
-          if (!settings.mockMode && !settings.apiKey) {
+        if (settings.mockMode || !hasCredentials(settings)) {
+          if (!settings.mockMode && !hasCredentials(settings)) {
             updateCard(id, {
               status: "error",
-              errorMessage: "API 키가 없습니다. 설정에서 키를 입력하거나 목 모드를 켜 주세요.",
+              errorMessage:
+                "API 키 또는 프록시가 없습니다. 설정에서 입력하거나 목 모드를 켜 주세요.",
             });
             return;
           }
           analysis = await analyzeMock(sentence);
         } else {
-          analysis = await analyzeSentence(sentence, {
-            apiKey: settings.apiKey,
-            model: settings.model,
-          });
+          analysis = await analyzeSentence(sentence, apiOptsFrom(settings));
         }
 
         const v = validateAnalysis(analysis, sentence);
@@ -89,20 +87,17 @@ export function useAnalysis(settings: AppSettings) {
         ...prev,
       ]);
       void (async () => {
-        if (settings.mockMode || !settings.apiKey) {
+        if (settings.mockMode || !hasCredentials(settings)) {
           updateCard(id, {
             status: "error",
             errorMessage: settings.mockMode
-              ? "목 모드에서는 한→일 번역이 지원되지 않습니다. API 키를 설정해 주세요."
-              : "API 키가 없습니다. 설정에서 키를 입력해 주세요.",
+              ? "목 모드에서는 한→일 번역이 지원되지 않습니다. API 키 또는 프록시를 설정해 주세요."
+              : "API 키 또는 프록시가 없습니다. 설정에서 입력해 주세요.",
           });
           return;
         }
         try {
-          const ja = await translateKoToJa(korean, {
-            apiKey: settings.apiKey,
-            model: settings.model,
-          });
+          const ja = await translateKoToJa(korean, apiOptsFrom(settings));
           // 번역 결과가 여러 문장이면 문장별 카드로 나눠 병렬 분석 (긴 출력 방지 → 속도 개선)
           const sentences = splitSentences(ja);
           const [first, ...rest] = sentences.length > 0 ? sentences : [ja];

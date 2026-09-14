@@ -120,6 +120,36 @@ export default function SettingsPage({ settings, onChange }: Props) {
       </div>
 
       <div className="card">
+        <h3 style={{ marginTop: 0 }}>프록시 모드 (Cloudflare Worker)</h3>
+        <p className="muted" style={{ marginTop: 0 }}>
+          API 키를 브라우저에 저장하는 대신 Cloudflare Worker가 서버에서 키를 보관합니다.
+          Worker URL과 접속 비밀번호를 입력하면 위의 API 키 없이 동작합니다. (설치 방법은
+          저장소 <code>japanese-interpreter/worker/</code> 참고)
+        </p>
+        <div className="settings-row">
+          <label>Worker URL</label>
+          <input
+            type="text"
+            placeholder="https://zenji-proxy.내계정.workers.dev"
+            value={settings.proxyUrl}
+            onChange={(e) => onChange({ proxyUrl: e.target.value.trim() })}
+          />
+        </div>
+        <div className="settings-row">
+          <label>접속 비밀번호</label>
+          <input
+            type="password"
+            placeholder="Worker에 설정한 ACCESS_PASSWORD"
+            value={settings.proxyPassword}
+            onChange={(e) => onChange({ proxyPassword: e.target.value })}
+          />
+        </div>
+        {settings.proxyUrl && (
+          <p className="muted">✅ 프록시 모드 활성 — API 키 입력 없이 프록시로 호출합니다.</p>
+        )}
+      </div>
+
+      <div className="card">
         <h3 style={{ marginTop: 0 }}>표시</h3>
         <div className="toggle-row">
           <label htmlFor="romaji-toggle">로마자 표기 (위)</label>

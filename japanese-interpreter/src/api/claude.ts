@@ -23,6 +23,24 @@ export const ANALYSIS_SYSTEM_PROMPT = `너는 한국인 일본어 학습자를 �
 export interface AnalyzeOptions {
   apiKey: string;
   model: string;
+  /** Cloudflare Worker 프록시 URL (설정 시 apiKey 대신 사용) */
+  proxyUrl?: string;
+  proxyPassword?: string;
+}
+
+/** 설정에서 API 호출 옵션 생성 */
+export function apiOptsFrom(settings: {
+  apiKey: string;
+  model: string;
+  proxyUrl: string;
+  proxyPassword: string;
+}): AnalyzeOptions {
+  return {
+    apiKey: settings.apiKey,
+    model: settings.model,
+    proxyUrl: settings.proxyUrl || undefined,
+    proxyPassword: settings.proxyPassword || undefined,
+  };
 }
 
 const KO_TO_JA_PROMPT = `너는 한국어 문장을 자연스러운 일본어로 옮기는 번역가다. 일상 회화체(です・ます체)를 기본으로, 간결하고 자연스럽게 번역한다. JSON으로만 응답한다. ja 필드에 일본어 번역문만 넣는다.`;
@@ -35,9 +53,20 @@ function supportsEffort(model: string): boolean {
 }
 
 /** 지연 상한: 호출당 타임아웃 45초·재시도 1회 (네트워크 지연이 몇 분을 잡아먹지 않도록) */
-function makeClient(apiKey: string): Anthropic {
+function makeClient(opts: AnalyzeOptions): Anthropic {
+  if (opts.proxyUrl) {
+    // 프록시 모드: 키는 Worker가 갖고 있고, 접속 비밀번호 헤더로 인증
+    return new Anthropic({
+      apiKey: "via-proxy",
+      baseURL: opts.proxyUrl.replace(/\/+$/, ""),
+      dangerouslyAllowBrowser: true,
+      defaultHeaders: { "x-access-password": opts.proxyPassword ?? "" },
+      timeout: 45_000,
+      maxRetries: 1,
+    });
+  }
   return new Anthropic({
-    apiKey,
+    apiKey: opts.apiKey,
     dangerouslyAllowBrowser: true,
     timeout: 45_000,
     maxRetries: 1,
@@ -46,7 +75,7 @@ function makeClient(apiKey: string): Anthropic {
 
 /** 한국어 문장 → 자연스러운 일본어 번역 (이후 일반 분석 파이프라인에 넣는다) */
 export async function translateKoToJa(korean: string, opts: AnalyzeOptions): Promise<string> {
-  const client = makeClient(opts.apiKey);
+  const client = makeClient(opts);
   const res = await client.messages.parse({
     model: opts.model,
     max_tokens: 2000,
@@ -99,7 +128,7 @@ const RETRY_TOKEN_LIMIT = 40;
  * 재시도도 실패하면 마지막 결과를 그대로 반환한다 (UI가 색상 없이 우아한 저하 처리).
  */
 export async function analyzeSentence(sentence: string, opts: AnalyzeOptions): Promise<Analysis> {
-  const client = makeClient(opts.apiKey);
+  const client = makeClient(opts);
   const messages: Anthropic.MessageParam[] = [{ role: "user", content: sentence }];
 
   let analysis: Analysis;
@@ -141,7 +170,7 @@ export async function recognizeHandwritingImage(
   imageDataUrl: string,
   opts: AnalyzeOptions,
 ): Promise<string> {
-  const client = makeClient(opts.apiKey);
+  const client = makeClient(opts);
   const base64 = imageDataUrl.split(",")[1] ?? "";
   const res = await client.messages.create({
     model: opts.model,

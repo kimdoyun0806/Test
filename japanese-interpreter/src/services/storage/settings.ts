@@ -3,6 +3,10 @@ import { DEFAULT_MODEL } from "../../types/analysis";
 export interface AppSettings {
   apiKey: string;
   model: string;
+  /** Cloudflare Worker 프록시 URL — 설정되면 API 키 대신 프록시로 호출 */
+  proxyUrl: string;
+  /** 프록시 접속 비밀번호 (x-access-password 헤더) */
+  proxyPassword: string;
   /** true면 API 대신 fixture 기반 목 클라이언트 사용 */
   mockMode: boolean;
   showRomaji: boolean;
@@ -13,11 +17,18 @@ export interface AppSettings {
   settingsVersion: number;
 }
 
+/** 실제 분석을 호출할 자격(키 또는 프록시)이 있는지 */
+export function hasCredentials(settings: AppSettings): boolean {
+  return Boolean(settings.apiKey || settings.proxyUrl);
+}
+
 const KEY = "jp-tutor-settings";
 const CURRENT_SETTINGS_VERSION = 2;
 
 export const DEFAULT_SETTINGS: AppSettings = {
   apiKey: "",
+  proxyUrl: "",
+  proxyPassword: "",
   model: DEFAULT_MODEL,
   mockMode: false,
   showRomaji: true,
