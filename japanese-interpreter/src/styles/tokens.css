@@ -1,0 +1,54 @@
+/* 세그먼트 색상 팔레트 (6색) — 라이트/다크 대비 확보 */
+:root {
+  --seg-color-0: #2563eb; /* blue */
+  --seg-color-1: #dc2626; /* red */
+  --seg-color-2: #16a34a; /* green */
+  --seg-color-3: #d97706; /* amber */
+  --seg-color-4: #9333ea; /* purple */
+  --seg-color-5: #0891b2; /* cyan */
+
+  --seg-bg-0: #2563eb22;
+  --seg-bg-1: #dc262622;
+  --seg-bg-2: #16a34a22;
+  --seg-bg-3: #d9770622;
+  --seg-bg-4: #9333ea22;
+  --seg-bg-5: #0891b222;
+
+  --color-bg: #f8fafc;
+  --color-card: #ffffff;
+  --color-text: #1e293b;
+  --color-text-muted: #64748b;
+  --color-border: #e2e8f0;
+  --color-primary: #2563eb;
+  --color-danger: #dc2626;
+  --color-success: #16a34a;
+  --color-warning: #d97706;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --seg-color-0: #60a5fa;
+    --seg-color-1: #f87171;
+    --seg-color-2: #4ade80;
+    --seg-color-3: #fbbf24;
+    --seg-color-4: #c084fc;
+    --seg-color-5: #22d3ee;
+
+    --seg-bg-0: #60a5fa2e;
+    --seg-bg-1: #f871712e;
+    --seg-bg-2: #4ade802e;
+    --seg-bg-3: #fbbf242e;
+    --seg-bg-4: #c084fc2e;
+    --seg-bg-5: #22d3ee2e;
+
+    --color-bg: #0f172a;
+    --color-card: #1e293b;
+    --color-text: #e2e8f0;
+    --color-text-muted: #94a3b8;
+    --color-border: #334155;
+    --color-primary: #60a5fa;
+    --color-danger: #f87171;
+    --color-success: #4ade80;
+    --color-warning: #fbbf24;
+  }
+}

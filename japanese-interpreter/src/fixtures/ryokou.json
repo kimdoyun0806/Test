@@ -1,0 +1,37 @@
+{
+  "sentence_jp": "旅行に行くなら、国内派ですか？海外派ですか？",
+  "translation_ko": "여행을 간다면, 국내파입니까? 해외파입니까?",
+  "tokens": [
+    { "surface": "旅行", "reading_kana": "りょこう", "romaji": "ryo-ko-o", "hangul": "료코오", "segment_index": 0 },
+    { "surface": "に", "reading_kana": "に", "romaji": "ni", "hangul": "니", "segment_index": 0 },
+    { "surface": "行く", "reading_kana": "いく", "romaji": "i-ku", "hangul": "이쿠", "segment_index": 0 },
+    { "surface": "なら、", "reading_kana": "なら", "romaji": "na-ra", "hangul": "나라", "segment_index": 0 },
+    { "surface": "国内派", "reading_kana": "こくないは", "romaji": "ko-ku-na-i-ha", "hangul": "코쿠나이하", "segment_index": 1 },
+    { "surface": "ですか？", "reading_kana": "ですか", "romaji": "de-su-ka", "hangul": "데스카", "segment_index": 1 },
+    { "surface": "海外派", "reading_kana": "かいがいは", "romaji": "ka-i-ga-i-ha", "hangul": "카이가이하", "segment_index": 2 },
+    { "surface": "ですか？", "reading_kana": "ですか", "romaji": "de-su-ka", "hangul": "데스카", "segment_index": 2 }
+  ],
+  "segments": [
+    { "jp_text": "旅行に行くなら、", "ko_text": "여행을 간다면," },
+    { "jp_text": "国内派ですか？", "ko_text": "국내파입니까?" },
+    { "jp_text": "海外派ですか？", "ko_text": "해외파입니까?" }
+  ],
+  "grammar_points": [
+    {
+      "pattern": "〜なら",
+      "jp_example": "行くなら",
+      "explanation_ko": "동사 기본형에 붙어 '~한다면'이라는 가정·조건을 나타냅니다. 상대의 말이나 상황을 받아 조언하거나 질문할 때 자주 씁니다."
+    },
+    {
+      "pattern": "〜派",
+      "jp_example": "国内派",
+      "explanation_ko": "명사에 붙어 '~파', 즉 어떤 취향이나 입장을 가진 부류를 나타냅니다. 예: 犬派(강아지파), 猫派(고양이파)."
+    }
+  ],
+  "vocab": [
+    { "token_index": 0, "meaning_ko": "여행", "level": "N5" },
+    { "token_index": 2, "meaning_ko": "가다", "level": "N5" },
+    { "token_index": 4, "meaning_ko": "국내파", "level": "N3" },
+    { "token_index": 6, "meaning_ko": "해외파", "level": "N3" }
+  ]
+}

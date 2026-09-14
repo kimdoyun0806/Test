@@ -7,3 +7,10 @@
 # 매뉴얼과 이 파일만 예외
 !/.gitignore
 !/New_manual.txt
+
+# 일본어 학습 앱 (japanese-interpreter/)
+!/japanese-interpreter/
+japanese-interpreter/node_modules/
+japanese-interpreter/dist/
+japanese-interpreter/.env
+japanese-interpreter/*.local
