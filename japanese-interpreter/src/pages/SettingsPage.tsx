@@ -69,7 +69,10 @@ export default function SettingsPage({ settings, onChange }: Props) {
               </option>
             ))}
           </select>
-          <p className="muted">일상 학습에는 저비용 모델(Haiku)도 충분한 품질을 제공합니다.</p>
+          <p className="muted">
+            기본값 Haiku는 문장당 약 $0.005 수준으로 일상 문장에 충분하며, 분석 검증에
+            실패한 어려운 문장만 자동으로 Opus로 승격해 재분석합니다.
+          </p>
         </div>
         <div className="toggle-row">
           <label htmlFor="mock-toggle">목(체험) 모드 — API 키 없이 예시 데이터로 체험</label>

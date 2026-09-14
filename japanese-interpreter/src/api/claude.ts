@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
-import { AnalysisSchema, type Analysis } from "../types/analysis";
+import { AnalysisSchema, ESCALATION_MODEL, type Analysis } from "../types/analysis";
 import { validateAnalysis } from "./validate";
 
 export const ANALYSIS_SYSTEM_PROMPT = `너는 한국인 일본어 학습자를 위한 문장 분석기다. 입력된 일본어 한 문장을 분석해 JSON으로만 응답한다.
@@ -45,17 +45,20 @@ async function callOnce(
 }
 
 /**
- * 문장 하나를 분석한다. 후검증 실패 시 실패 항목을 알려주며 1회 재시도하고,
- * 그래도 실패하면 마지막 결과를 그대로 반환한다 (UI가 우아한 저하 처리).
+ * 문장 하나를 분석한다. 후검증 실패 시 1회 재시도하되,
+ * 기본 모델이 저비용(Haiku 등)이면 고품질 모델(Opus)로 자동 승격해 재시도한다
+ * — 평소엔 저렴하게, 어려운 문장에서만 고품질 모델 비용이 발생.
+ * 재시도도 실패하면 마지막 결과를 그대로 반환한다 (UI가 색상 없이 우아한 저하 처리).
  */
 export async function analyzeSentence(sentence: string, opts: AnalyzeOptions): Promise<Analysis> {
   const client = new Anthropic({ apiKey: opts.apiKey, dangerouslyAllowBrowser: true });
   const messages: Anthropic.MessageParam[] = [{ role: "user", content: sentence }];
 
-  let analysis = await callOnce(client, opts.model, messages);
+  const analysis = await callOnce(client, opts.model, messages);
   const result = validateAnalysis(analysis, sentence);
   if (result.ok) return analysis;
 
+  const retryModel = opts.model === ESCALATION_MODEL ? opts.model : ESCALATION_MODEL;
   const retryMessages: Anthropic.MessageParam[] = [
     ...messages,
     { role: "assistant", content: JSON.stringify(analysis) },
@@ -65,8 +68,7 @@ export async function analyzeSentence(sentence: string, opts: AnalyzeOptions): P
     },
   ];
   try {
-    const retried = await callOnce(client, opts.model, retryMessages);
-    if (validateAnalysis(retried, sentence).ok) return retried;
+    const retried = await callOnce(client, retryModel, retryMessages);
     return retried;
   } catch {
     return analysis;

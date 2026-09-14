@@ -60,9 +60,12 @@ export type GrammarPoint = Analysis["grammar_points"][number];
 export const SEGMENT_COLOR_COUNT = 6;
 
 export const MODEL_OPTIONS = [
-  { id: "claude-opus-5", label: "Claude Opus 5 — 최고 품질 (고비용)" },
+  { id: "claude-haiku-4-5", label: "Claude Haiku 4.5 — 저비용, 일상 문장 충분 (기본)" },
   { id: "claude-sonnet-5", label: "Claude Sonnet 5 — 균형" },
-  { id: "claude-haiku-4-5", label: "Claude Haiku 4.5 — 저비용 (일상 학습 권장)" },
+  { id: "claude-opus-5", label: "Claude Opus 5 — 최고 품질 (고비용)" },
 ] as const;
 
-export const DEFAULT_MODEL = "claude-opus-5";
+export const DEFAULT_MODEL = "claude-haiku-4-5";
+
+/** 검증 실패 시 자동 승격에 사용하는 고품질 모델 */
+export const ESCALATION_MODEL = "claude-opus-5";
