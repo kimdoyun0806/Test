@@ -1,0 +1,11 @@
+node_modules/
+dist/
+dist-ssr/
+
+# 로컬 개발용 API 키 (절대 커밋하지 말 것)
+.env
+.env.local
+.env.*.local
+
+*.log
+.DS_Store
