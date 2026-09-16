@@ -62,9 +62,12 @@ export function useAnalysis(settings: AppSettings) {
         const v = validateAnalysis(analysis, sentence);
         await putCachedAnalysis(sentence, analysis, settings.mockMode ? "mock" : settings.model);
         updateCard(id, { sentence, status: "done", analysis, degraded: !v.ok });
+        // 새 Worker는 응답 헤더로 이미 갱신했다 — 구버전 Worker용 폴백 조회
         notifyUsageChanged();
       } catch (error) {
         updateCard(id, { status: "error", errorMessage: describeApiError(error) });
+        // 실패해도 서버 카운터는 이미 올라갔을 수 있으므로 배지를 맞춘다
+        notifyUsageChanged();
       }
     },
     [settings, updateCard],

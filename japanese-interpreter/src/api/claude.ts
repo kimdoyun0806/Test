@@ -3,7 +3,7 @@ import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
 import { WireAnalysisSchema, fromWire, type Analysis } from "../types/analysis";
 import { ENV_PROXY_PASSWORD, ENV_PROXY_URL } from "../services/storage/settings";
-import { getAdminCode } from "../services/auth";
+import { getAdminCode, notifyUsageChanged, readUsageHeaders } from "../services/auth";
 import { validateAnalysis } from "./validate";
 
 export const ANALYSIS_SYSTEM_PROMPT = `너는 한국인 일본어 학습자를 위한 문장 분석기다. 입력된 일본어 문장을 분석해 JSON으로만 응답한다.
@@ -68,6 +68,21 @@ function supportsEffort(model: string): boolean {
   return !model.startsWith("claude-haiku");
 }
 
+/**
+ * 프록시 응답에 실려 오는 사용량 헤더를 읽어 배지에 즉시 반영하는 fetch 래퍼.
+ * 응답이 도착하는 그 순간 갱신되므로 별도 조회 왕복도, KV 반영 지연도 타지 않는다.
+ * (성공·한도초과·에러 응답 모두 동일하게 처리)
+ */
+async function usageTrackingFetch(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): Promise<Response> {
+  const res = await fetch(input, init);
+  const usage = readUsageHeaders(res.headers);
+  if (usage) notifyUsageChanged(usage);
+  return res;
+}
+
 /** 지연 상한: 호출당 타임아웃 45초·재시도 1회 (네트워크 지연이 몇 분을 잡아먹지 않도록) */
 function makeClient(opts: AnalyzeOptions): Anthropic {
   if (opts.proxyUrl) {
@@ -80,6 +95,7 @@ function makeClient(opts: AnalyzeOptions): Anthropic {
         "x-access-password": opts.proxyPassword ?? "",
         "x-admin-code": getAdminCode(),
       },
+      fetch: usageTrackingFetch,
       timeout: 45_000,
       maxRetries: 1,
     });

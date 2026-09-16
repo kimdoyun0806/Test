@@ -33,6 +33,8 @@ export interface UsageInfo {
   limit: number;
   /** KV가 연결되어 실제로 제한이 동작 중인지 */
   limited: boolean;
+  /** 집계 기준 날짜(KST, YYYY-MM-DD) — 구버전 Worker는 주지 않는다 */
+  date?: string;
 }
 
 /** 사이트 사용량 조회 (어드민 코드 검증 겸용) */
@@ -43,13 +45,53 @@ export async function fetchUsage(adminCode: string = getAdminCode()): Promise<Us
       "x-access-password": ENV_PROXY_PASSWORD,
       "x-admin-code": adminCode,
     },
+    // 브라우저·중간 캐시가 오래된 숫자를 돌려주지 않도록
+    cache: "no-store",
   });
   if (!res.ok) throw new Error(`사용량 조회 실패 (${res.status})`);
   return (await res.json()) as UsageInfo;
 }
 
+/**
+ * 프록시 응답 헤더(x-zenji-*)에서 현재 사용량을 읽는다.
+ * Worker가 모든 응답에 실어 보내므로, 분석 호출이 끝나는 즉시 추가 요청 없이 배지를 갱신할 수 있다.
+ * 헤더가 없으면(구버전 Worker) null.
+ */
+export function readUsageHeaders(headers: { get(name: string): string | null }): UsageInfo | null {
+  const used = Number(headers.get("x-zenji-used"));
+  const limit = Number(headers.get("x-zenji-limit"));
+  if (headers.get("x-zenji-used") === null || !Number.isFinite(used) || !Number.isFinite(limit)) {
+    return null;
+  }
+  return {
+    ok: true,
+    admin: headers.get("x-zenji-admin") === "1",
+    used,
+    limit,
+    limited: headers.get("x-zenji-limited") !== "0",
+    date: headers.get("x-zenji-date") ?? undefined,
+  };
+}
+
+/**
+ * 같은 날짜 안에서는 사용량이 뒤로 가지 않게 병합한다.
+ * (KV는 최종 일관성이라 방금 올라간 숫자를 조회가 잠깐 낮게 돌려줄 수 있다)
+ */
+export function mergeUsage(prev: UsageInfo | null, next: UsageInfo): UsageInfo {
+  if (!prev?.date || !next.date || prev.date !== next.date) return next;
+  return { ...next, used: Math.max(prev.used, next.used) };
+}
+
 /** 분석 완료 후 사용량 배지 갱신용 이벤트 */
 export const USAGE_CHANGED_EVENT = "zenji-usage-changed";
-export function notifyUsageChanged(): void {
-  window.dispatchEvent(new Event(USAGE_CHANGED_EVENT));
+
+/**
+ * 배지 갱신 알림.
+ * usage를 주면 배지가 그 값을 즉시 반영하고(네트워크 왕복 없음),
+ * 없으면 배지가 스스로 다시 조회한다.
+ */
+export function notifyUsageChanged(usage?: UsageInfo): void {
+  window.dispatchEvent(
+    new CustomEvent<UsageInfo | null>(USAGE_CHANGED_EVENT, { detail: usage ?? null }),
+  );
 }
