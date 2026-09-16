@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import type { Analysis } from "../types/analysis";
+import type { Analysis, AnalysisToken } from "../types/analysis";
 import type { VocabCard } from "../services/storage/db";
 import {
   deleteVocab,
+  saveWord,
   exportVocab,
   importVocab,
   listVocab,
@@ -12,6 +13,7 @@ import {
 import { getCachedAnalysis } from "../services/storage/analysisCache";
 import { speakJapanese, hasJapaneseVoice } from "../services/speech/tts";
 import AnalyzedSentenceView from "../components/interpret/AnalyzedSentenceView";
+import WordDetailSheet from "../components/interpret/WordDetailSheet";
 
 interface Props {
   onStartReview: () => void;
@@ -26,6 +28,29 @@ interface SentenceGroup {
   analysis?: Analysis;
 }
 
+/** 단어 정보 시트에 넘길 내용 (저장된 단어 카드·분석 토큰 공용) */
+interface WordDetail {
+  surface: string;
+  readingKana: string;
+  romaji: string;
+  hangul: string;
+  meaningKo: string | null;
+  level: string | null;
+  /** 아직 어휘장에 없는 단어(저장된 문장 속 토큰)만 저장 버튼을 단다 */
+  onSave?: () => void | Promise<void>;
+}
+
+function detailFromCard(card: VocabCard): WordDetail {
+  return {
+    surface: card.front,
+    readingKana: card.readingKana,
+    romaji: card.romaji,
+    hangul: card.readingHangul,
+    meaningKo: card.meaningKo,
+    level: card.level,
+  };
+}
+
 export default function NotebookPage({ onStartReview }: Props) {
   const [words, setWords] = useState<VocabCard[]>([]);
   const [groups, setGroups] = useState<SentenceGroup[]>([]);
@@ -34,6 +59,31 @@ export default function NotebookPage({ onStartReview }: Props) {
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState<string | null>(null);
   const [backupMessage, setBackupMessage] = useState<string | null>(null);
+  const [detail, setDetail] = useState<WordDetail | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+
+  const showToast = (message: string) => {
+    setToast(message);
+    setTimeout(() => setToast(null), 2500);
+  };
+
+  /** 저장된 문장의 토큰 → 시트. 통역 화면과 같이 단어를 어휘장에 추가할 수 있다 */
+  const detailFromToken = (token: AnalysisToken, source: string): WordDetail => ({
+    surface: token.surface,
+    readingKana: token.reading_kana,
+    romaji: token.romaji,
+    hangul: token.hangul,
+    meaningKo: token.meaning_ko,
+    level: token.level,
+    onSave: async () => {
+      const added = await saveWord(token, source);
+      showToast(
+        added ? `"${token.surface}" 단어를 어휘장에 저장했습니다.` : "이미 저장된 단어입니다.",
+      );
+      setDetail(null);
+      if (added) void reload();
+    },
+  });
 
   const handleExport = async () => {
     const data = await exportVocab();
@@ -137,7 +187,11 @@ export default function NotebookPage({ onStartReview }: Props) {
           {group.analysis ? (
             <>
               {expanded === group.source ? (
-                <AnalyzedSentenceView analysis={group.analysis} showGrammar={true} />
+                <AnalyzedSentenceView
+                  analysis={group.analysis}
+                  showGrammar={true}
+                  onTokenClick={(token) => setDetail(detailFromToken(token, group.source))}
+                />
               ) : (
                 <>
                   <p style={{ margin: "0 0 4px", fontSize: "1.1rem" }}>{group.source}</p>
@@ -191,19 +245,28 @@ export default function NotebookPage({ onStartReview }: Props) {
       {visibleWords.map((card) => (
         <div key={card.id} className="card">
           <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-            <div>
-              <strong style={{ fontSize: "1.1rem" }}>{card.front}</strong>{" "}
-              <span className="muted">
-                {card.readingKana}
-                {card.level ? ` · ${card.level}` : ""}
+            <button
+              type="button"
+              className="vocab-word-main"
+              title="탭하여 음절 분석 보기"
+              onClick={() => setDetail(detailFromCard(card))}
+            >
+              <span>
+                <strong style={{ fontSize: "1.1rem" }}>{card.front}</strong>{" "}
+                <span className="muted">
+                  {card.readingKana}
+                  {card.level ? ` · ${card.level}` : ""}
+                </span>
               </span>
-              <br />
+              <span className="muted">
+                {card.romaji}
+                {card.readingHangul ? ` · ${card.readingHangul}` : ""}
+              </span>
               <span>{card.meaningKo}</span>
-              <br />
               <span className="muted">
                 단어 · 다음 복습: {new Date(card.srs.dueAt).toLocaleDateString("ko-KR")}
               </span>
-            </div>
+            </button>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <button
                 className="btn btn-sm"
@@ -252,6 +315,21 @@ export default function NotebookPage({ onStartReview }: Props) {
         </div>
         {backupMessage && <p className="muted">{backupMessage}</p>}
       </div>
+
+      {detail && (
+        <WordDetailSheet
+          surface={detail.surface}
+          readingKana={detail.readingKana}
+          romaji={detail.romaji}
+          hangul={detail.hangul}
+          meaningKo={detail.meaningKo}
+          level={detail.level}
+          onSave={detail.onSave && (() => void detail.onSave?.())}
+          onClose={() => setDetail(null)}
+        />
+      )}
+
+      {toast && <div className="toast">{toast}</div>}
     </div>
   );
 }

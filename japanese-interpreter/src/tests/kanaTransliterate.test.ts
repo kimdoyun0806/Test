@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { transliterateKana } from "../services/kanaTransliterate";
+import { syllabifyKana, transliterateKana } from "../services/kanaTransliterate";
 
 describe("transliterateKana", () => {
   it("기본 변환: りょこう → ryo-ko-o / 료코오 (장음 모음 반복)", () => {
@@ -49,5 +49,47 @@ describe("transliterateKana", () => {
   it("요음: じゃ/しゅ/ちょ", () => {
     expect(transliterateKana("じゃあ").romaji).toBe("ja-a");
     expect(transliterateKana("しゅみ")).toEqual({ romaji: "shu-mi", hangul: "슈미" });
+  });
+});
+
+describe("syllabifyKana", () => {
+  it("음절마다 가나/로마자/한글을 나눈다: りょこう", () => {
+    expect(syllabifyKana("りょこう")).toEqual([
+      { kana: "りょ", romaji: "ryo", hangul: "료" },
+      { kana: "こう", romaji: "ko-o", hangul: "코오" },
+    ]);
+  });
+
+  it("촉음·발음은 앞 음절에 붙는다: がっこう / にほん", () => {
+    expect(syllabifyKana("がっこう")).toEqual([
+      { kana: "がっ", romaji: "ga-k", hangul: "갓" },
+      { kana: "こう", romaji: "ko-o", hangul: "코오" },
+    ]);
+    expect(syllabifyKana("にほん")).toEqual([
+      { kana: "に", romaji: "ni", hangul: "니" },
+      { kana: "ほん", romaji: "ho-n", hangul: "혼" },
+    ]);
+  });
+
+  it("장음 기호도 앞 음절에 붙는다: コーヒー", () => {
+    expect(syllabifyKana("コーヒー")).toEqual([
+      { kana: "こー", romaji: "ko-o", hangul: "코오" },
+      { kana: "ひー", romaji: "hi-i", hangul: "히이" },
+    ]);
+  });
+
+  it("음절을 이어 붙이면 transliterateKana 결과와 같다", () => {
+    for (const kana of ["がっこう", "てんき", "さんぽ", "しています", "ですか？", "かいがい"]) {
+      const units = syllabifyKana(kana);
+      expect({
+        romaji: units.map((u) => u.romaji).join("-"),
+        hangul: units.map((u) => u.hangul).join(""),
+      }).toEqual(transliterateKana(kana));
+    }
+  });
+
+  it("빈 문자열·구두점만 있으면 빈 배열", () => {
+    expect(syllabifyKana("")).toEqual([]);
+    expect(syllabifyKana("。")).toEqual([]);
   });
 });

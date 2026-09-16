@@ -96,12 +96,23 @@ function splitMora(hira: string): string[] {
   return out;
 }
 
-function lastVowel(roma: string[]): string | undefined {
-  for (let i = roma.length - 1; i >= 0; i--) {
-    const c = roma[i][roma[i].length - 1];
+function lastVowel(units: SyllableUnit[]): string | undefined {
+  const pieces = units.flatMap((u) => u.romaji.split("-"));
+  for (let i = pieces.length - 1; i >= 0; i--) {
+    const c = pieces[i][pieces[i].length - 1];
     if ("aiueo".includes(c)) return c;
   }
   return undefined;
+}
+
+/** 음절(모라) 단위 발음 조각 — 촉음·발음(ん)·장음은 앞 음절에 붙는다 */
+export interface SyllableUnit {
+  /** 이 음절의 가나 (예: "がっ") */
+  kana: string;
+  /** 모라 단위 하이픈 로마자 (예: "ga-k") */
+  romaji: string;
+  /** 한글 발음 (예: "갓") */
+  hangul: string;
 }
 
 export interface Transliteration {
@@ -111,20 +122,38 @@ export interface Transliteration {
   hangul: string;
 }
 
-export function transliterateKana(kana: string): Transliteration {
+/**
+ * 가나 읽기를 음절 단위로 쪼갠다. 단어 정보 시트에서 음절마다 발음을 보여줄 때 사용한다.
+ * transliterateKana도 이 결과를 이어 붙여 만들므로 두 표기는 항상 일치한다.
+ */
+export function syllabifyKana(kana: string): SyllableUnit[] {
   const hira = katakanaToHiragana(kana.normalize("NFKC"));
   const moras = splitMora(hira);
-  const roma: string[] = [];
-  const hang: string[] = [];
+  const units: SyllableUnit[] = [];
 
-  /** 직전 한글 음절에 받침을 붙인다 (받침 자리가 없으면 낱자 폴백) */
-  const addBatchim = (jong: number, fallback: string) => {
-    const last = hang[hang.length - 1];
-    const code = last?.charCodeAt(last.length - 1) ?? 0;
-    if (last && code >= 0xac00 && code <= 0xd7a3 && (code - 0xac00) % 28 === 0) {
-      hang[hang.length - 1] = last.slice(0, -1) + String.fromCharCode(code + jong);
+  /** 독립 음절이 아닌 모라(장음 등)를 직전 음절에 이어 붙인다 */
+  const append = (mora: string, romaji: string, hangul: string) => {
+    const last = units[units.length - 1];
+    if (!last) {
+      units.push({ kana: mora, romaji, hangul });
+      return;
+    }
+    last.kana += mora;
+    last.romaji += `-${romaji}`;
+    last.hangul += hangul;
+  };
+
+  /** 직전 음절에 받침을 붙인다 (받침 자리가 없으면 낱자 폴백) */
+  const addBatchim = (mora: string, romaji: string, jong: number, fallback: string) => {
+    const last = units[units.length - 1];
+    const h = last?.hangul ?? "";
+    const code = h.charCodeAt(h.length - 1);
+    if (h && code >= 0xac00 && code <= 0xd7a3 && (code - 0xac00) % 28 === 0) {
+      last!.kana += mora;
+      last!.romaji += `-${romaji}`;
+      last!.hangul = h.slice(0, -1) + String.fromCharCode(code + jong);
     } else {
-      hang.push(fallback);
+      append(mora, romaji, fallback);
     }
   };
 
@@ -135,44 +164,44 @@ export function transliterateKana(kana: string): Transliteration {
     if (m === "っ") {
       let c = nextRoma?.[0] ?? "t";
       if (nextRoma?.startsWith("ch")) c = "t";
-      roma.push(c);
-      addBatchim(JONG.s, "ㅅ");
+      addBatchim(m, c, JONG.s, "ㅅ");
       continue;
     }
     if (m === "ん") {
-      roma.push("n");
       const c = nextRoma?.[0];
-      if (c === "k" || c === "g") addBatchim(JONG.ng, "ㅇ");
-      else if (c === "m" || c === "b" || c === "p") addBatchim(JONG.m, "ㅁ");
-      else addBatchim(JONG.n, "ㄴ");
+      if (c === "k" || c === "g") addBatchim(m, "n", JONG.ng, "ㅇ");
+      else if (c === "m" || c === "b" || c === "p") addBatchim(m, "n", JONG.m, "ㅁ");
+      else addBatchim(m, "n", JONG.n, "ㄴ");
       continue;
     }
     if (m === "ー") {
-      const v = lastVowel(roma);
-      if (v) {
-        roma.push(v);
-        hang.push(VOWEL_HANGUL[v]);
-      }
+      const v = lastVowel(units);
+      if (v) append(m, v, VOWEL_HANGUL[v]);
       continue;
     }
     // 장음: お단 + う → 모음 반복 (りょこう → ryo-ko-o / 료코오)
-    if (m === "う" && lastVowel(roma) === "o") {
-      roma.push("o");
-      hang.push("오");
+    if (m === "う" && lastVowel(units) === "o") {
+      append(m, "o", "오");
       continue;
     }
     const r = ROMAJI[m];
     const h = HANGUL[m];
     if (r && h) {
-      roma.push(r);
-      hang.push(h);
+      units.push({ kana: m, romaji: r, hangul: h });
       continue;
     }
     // 구두점은 건너뛰고, 숫자·라틴 등은 그대로 통과
     if (PUNCT_RE.test(m)) continue;
-    roma.push(m);
-    hang.push(m);
+    units.push({ kana: m, romaji: m, hangul: m });
   }
 
-  return { romaji: roma.join("-"), hangul: hang.join("") };
+  return units;
+}
+
+export function transliterateKana(kana: string): Transliteration {
+  const units = syllabifyKana(kana);
+  return {
+    romaji: units.map((u) => u.romaji).join("-"),
+    hangul: units.map((u) => u.hangul).join(""),
+  };
 }

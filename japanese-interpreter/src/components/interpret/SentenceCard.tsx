@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { SentenceCardData } from "../../hooks/useAnalysis";
 import type { AnalysisToken } from "../../types/analysis";
 import AnalyzedSentenceView from "./AnalyzedSentenceView";
+import WordDetailSheet from "./WordDetailSheet";
 import PronunciationPractice from "../practice/PronunciationPractice";
 import { speakJapanese, hasJapaneseVoice } from "../../services/speech/tts";
 import { saveWord, saveSentence } from "../../services/storage/vocabStore";
@@ -138,35 +139,16 @@ export default function SentenceCard({
       </div>
 
       {selectedToken && (
-        <div className="sheet-backdrop" onClick={() => setSelectedToken(null)}>
-          <div className="sheet" onClick={(e) => e.stopPropagation()}>
-            <h3 className="word-title">{selectedToken.surface}</h3>
-            <p style={{ margin: "0 0 4px" }}>
-              {selectedToken.reading_kana} · {selectedToken.romaji} · {selectedToken.hangul}
-            </p>
-            <p style={{ marginTop: 0, fontSize: "1.05rem" }}>
-              {selectedToken.meaning_ko ?? "(뜻 정보 없음 — 문장을 다시 분석하면 표시됩니다)"}
-              {selectedToken.level && (
-                <span className="muted"> · {selectedToken.level}</span>
-              )}
-            </p>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button
-                className="btn btn-sm"
-                disabled={!hasJapaneseVoice()}
-                onClick={() => speakJapanese(selectedToken.surface)}
-              >
-                🔊 듣기
-              </button>
-              <button className="btn btn-sm btn-primary" onClick={() => handleSaveWord(selectedToken)}>
-                ⭐ 어휘장에 저장
-              </button>
-              <button className="btn btn-sm" onClick={() => setSelectedToken(null)}>
-                닫기
-              </button>
-            </div>
-          </div>
-        </div>
+        <WordDetailSheet
+          surface={selectedToken.surface}
+          readingKana={selectedToken.reading_kana}
+          romaji={selectedToken.romaji}
+          hangul={selectedToken.hangul}
+          meaningKo={selectedToken.meaning_ko}
+          level={selectedToken.level}
+          onSave={() => handleSaveWord(selectedToken)}
+          onClose={() => setSelectedToken(null)}
+        />
       )}
     </div>
   );
