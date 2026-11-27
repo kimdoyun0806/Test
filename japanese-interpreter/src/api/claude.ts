@@ -32,14 +32,32 @@ export interface AnalyzeOptions {
 
 /**
  * 설정에서 API 호출 옵션 생성.
- * 우선순위: 사용자가 넣은 프록시 > 사용자가 넣은 API 키 > 빌드 내장 공용 프록시
+ * 우선순위: 빌드 내장 공용 프록시 > 브라우저에 저장된 프록시 > 브라우저에 저장된 API 키
+ *
+ * 내장 프록시가 있는 배포본에서는 항상 그것을 쓴다. 설정 화면에서 키·프록시 입력란이
+ * 사라졌기 때문에, 예전 버전에서 브라우저(localStorage)에 저장해 둔 키가 만료되면
+ * 지울 방법도 없이 계속 인증 실패가 났다 — 저장값은 내장 프록시가 없을 때만 사용한다.
  */
-export function apiOptsFrom(settings: {
-  apiKey: string;
-  model: string;
-  proxyUrl: string;
-  proxyPassword: string;
-}): AnalyzeOptions {
+export function apiOptsFrom(
+  settings: {
+    apiKey: string;
+    model: string;
+    proxyUrl: string;
+    proxyPassword: string;
+  },
+  builtin: { url: string; password: string } = {
+    url: ENV_PROXY_URL,
+    password: ENV_PROXY_PASSWORD,
+  },
+): AnalyzeOptions {
+  if (builtin.url) {
+    return {
+      apiKey: "",
+      model: settings.model,
+      proxyUrl: builtin.url,
+      proxyPassword: builtin.password || undefined,
+    };
+  }
   if (settings.proxyUrl) {
     return {
       apiKey: settings.apiKey,
@@ -48,15 +66,7 @@ export function apiOptsFrom(settings: {
       proxyPassword: settings.proxyPassword || undefined,
     };
   }
-  if (settings.apiKey) {
-    return { apiKey: settings.apiKey, model: settings.model };
-  }
-  return {
-    apiKey: "",
-    model: settings.model,
-    proxyUrl: ENV_PROXY_URL || undefined,
-    proxyPassword: ENV_PROXY_PASSWORD || undefined,
-  };
+  return { apiKey: settings.apiKey, model: settings.model };
 }
 
 const KO_TO_JA_PROMPT = `너는 한국어 문장을 자연스러운 일본어로 옮기는 번역가다. 일상 회화체(です・ます체)를 기본으로, 간결하고 자연스럽게 번역한다. JSON으로만 응답한다. ja 필드에 일본어 번역문만 넣는다.`;
@@ -218,7 +228,11 @@ export async function recognizeHandwritingImage(
 /** 사용자 친화적 에러 메시지로 변환 */
 export function describeApiError(error: unknown): string {
   if (error instanceof Anthropic.AuthenticationError) {
-    return "인증에 실패했습니다. 접속 비밀번호/키 설정을 확인해 주세요.";
+    // 401의 출처를 구분한다: 프록시(Worker)가 거절했는지, Anthropic이 키를 거절했는지
+    if (error.message.includes("invalid access password")) {
+      return "프록시 접속 비밀번호가 맞지 않습니다. GitHub 변수 ZENJI_PROXY_PASSWORD와 Worker의 ACCESS_PASSWORD가 같은 값인지 확인한 뒤 사이트를 다시 배포해 주세요.";
+    }
+    return "Anthropic API 키가 거절되었습니다 (만료·오타·삭제된 키). Worker의 ANTHROPIC_API_KEY 시크릿을 새 키로 저장하고 Deploy했는지 확인해 주세요.";
   }
   if (error instanceof Anthropic.RateLimitError) {
     if (error.message.includes("daily_limit_exceeded")) {
